@@ -26,9 +26,12 @@ window.POSHAN_CONFIG = {
   },
   consultFee: 499,
 
-  // Prices shown in the app. They must match the plans you create in Razorpay.
-  plans: [
-    { id: "monthly", label: "Monthly", price: 99, per: "month" },
-    { id: "yearly", label: "Yearly", price: 799, per: "year", note: "Save 33%" }
-  ]
+  // UPI account that receives all payments (shown with a QR code at checkout)
+  upi: { id: "sinban1968@oksbi", name: "Sindhu Bandgar" },
+
+  // Poshan Pro: one-time UPI payment, unlocked after you approve it
+  pro: { price: 199, days: 90, label: "3 months" },
+
+  // Free Pro given with each consultation once its payment is approved
+  consultProDays: 30
 };

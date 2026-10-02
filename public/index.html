@@ -218,6 +218,18 @@ tr:nth-child(even) .maskline{width:65%}
 .sitefoot p{margin:0}
 .check{align-items:flex-start!important}.check input{margin-top:2px;flex-shrink:0}
 .inclbox{background:var(--sunk);border-radius:10px;padding:12px 14px}
+.plan1{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;border:1.5px solid var(--accent);background:var(--accent-soft);border-radius:12px;padding:12px 14px}
+.plan1 .pp{font:500 26px var(--f-mono)}
+.plan1 .pn{font-size:13px;color:var(--ink)}
+.okline{margin:0;color:var(--ok);font-size:14px;font-weight:600}
+.pendbox{display:grid;gap:4px;border:1px dashed var(--accent);border-radius:10px;padding:12px 14px;font-size:14px}
+.upibox{display:grid;gap:12px;justify-items:center;border:1px solid var(--line);border-radius:14px;padding:16px;text-align:center}
+.qr{width:216px;height:216px;background:#fff;border-radius:10px;padding:8px;display:grid;place-items:center;max-width:100%}
+.qr img,.qr canvas{width:200px!important;height:200px!important;display:block}
+.qr canvas{display:none!important}
+.upito{display:grid;gap:2px;font-size:15px}
+.upiid{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;font-size:16px}
+.upibox .btn.block{text-decoration:none}
 .cfee{display:flex;align-items:baseline;gap:8px;margin-bottom:12px}
 .cprice{font:600 28px var(--f-mono);font-variant-numeric:tabular-nums}
 textarea{width:100%;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:15px/1.45 var(--f-body);padding:8px 10px;resize:vertical;min-width:0}
@@ -642,15 +654,18 @@ $('#addrow').onclick=()=>{
 $('#tab-log').onclick=()=>setMode('log');
 $('#tab-level').onclick=()=>setMode('level');
 
-/* ───────── Account, subscription and paywall ───────── */
+/* ───────── Account, Pro and UPI payments ───────── */
 const CFG=Object.assign({demo:true,firebase:null,supportEmail:'',consultFee:499,
  doctor:{name:'Dr Rajesh Bandgar',phone:'+91 81696 63781',whatsapp:'918169663781',email:'rajkban31@gmail.com',instagram:'idrrajeshbandgar',registration:''},
- plans:[{id:'monthly',label:'Monthly',price:99,per:'month'},{id:'yearly',label:'Yearly',price:799,per:'year',note:'Save 33%'}]},window.POSHAN_CONFIG||{});
-const acct={user:null,plan:'free',proUntil:0,status:'',ready:false};
-let fb=null, pendingPlan=null, chosenPlan=(CFG.plans.find(p=>p.note)||CFG.plans[0]).id, emailMode='signin';
+ upi:{id:'sinban1968@oksbi',name:'Sindhu Bandgar'},
+ pro:{price:199,days:90,label:'3 months'},consultProDays:30},window.POSHAN_CONFIG||{});
+const acct={user:null,plan:'free',proUntil:0,pending:null,rejected:null,ready:false};
+let fb=null, pendingPro=false, emailMode='signin', payCtx=null, proDone=null;
 function isPro(){return acct.plan==='pro'&&acct.proUntil>Date.now()}
-const planById=id=>CFG.plans.find(p=>p.id===id)||CFG.plans[0];
+const freePro=()=>{const n=Math.max(1,Math.round(CFG.consultProDays/30));return n===1?'1 month':n+' months'};
 const rupee=n=>'₹'+Number(n).toLocaleString('en-IN');
+const fmtDate=ms=>new Date(ms).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+const isPhone=()=>{try{return matchMedia('(pointer:coarse)').matches}catch(e){return false}};
 
 const FEATURES={
  micro:{title:'Micronutrients',line:'Micronutrient targets (ICMR-NIN 2020) with Indian food sources for your diet'},
@@ -672,12 +687,12 @@ function locked(key,title,sub){
  return `<section class="card lockcard"><h2>${title} <span class="probadge">Pro</span></h2><p class="sub">${sub}</p>
   <div class="lockpv">${lockPreview(key)}</div>
   <div class="lockrow"><button type="button" class="btn primary" data-open="plans" data-feature="${key}">Unlock ${FEATURES[key].title.toLowerCase()}</button>
-  <p class="fine">Pro from ${rupee(CFG.plans[0].price)}/${CFG.plans[0].per}. Cancel anytime.</p></div></section>`;
+  <p class="fine">Pro: ${rupee(CFG.pro.price)} for ${CFG.pro.label}. One-time UPI payment, no auto-renewal.</p></div></section>`;
 }
 
 /* ───────── One-to-one consultation ───────── */
 const CONCERNS=['Weight loss','Weight gain or muscle building','Diabetes','High blood pressure','Cholesterol or heart health','PCOS or thyroid','Sports and exercise nutrition','General healthy eating','Other'];
-const INCLUDED=['20–30 minute video or phone call','Review of your reports and Poshan targets','Personalised Indian diet plan on WhatsApp within 24 hours','Home exercise plan and lifestyle targets','One follow-up check-in within 7 days'];
+const INCLUDED=['20–30 minute video or phone call','Review of your reports and Poshan targets','Personalised Indian diet plan on WhatsApp within 24 hours','Home exercise plan and lifestyle targets','One follow-up check-in within 7 days',`${freePro()} of Poshan Pro free`];
 const SLOTS=['Morning (9 am–12 pm)','Afternoon (12–4 pm)','Evening (4–8 pm)'];
 const modeLabel=m=>m==='phone'?'Phone call':'Online video call';
 let consult={name:'',age:'',sex:'',phone:'',email:'',concern:'',details:'',mode:'video',slot:'',attach:true}, consultDone=null;
@@ -685,7 +700,7 @@ function consultCard(){
  const d=CFG.doctor;
  return `<section class="card consult" id="consult">
   <h2>One-to-one consultation</h2>
-  <p class="sub">A personal diet and lifestyle plan from ${esc(d.name)}, online by video call or over a phone call. Share your details, pay online, and you'll be contacted on WhatsApp within 1–2 days to fix a time.</p>
+  <p class="sub">A personal diet and lifestyle plan from ${esc(d.name)}, online by video call or over a phone call. Share your details, pay by UPI, and you'll be contacted on WhatsApp within 1–2 days to fix a time.</p>
   <div class="cfee"><span class="cprice">${rupee(CFG.consultFee)}</span><span class="fine">per consultation</span></div>
   <div class="lbl" style="margin-bottom:8px">What's included</div>
   <ul class="feats incl">${INCLUDED.map(x=>`<li>${x}</li>`).join('')}</ul>
@@ -720,28 +735,46 @@ function consultErrors(){
 }
 function planText(){const r=compute(state);return r.errs?'':summaryText(r).split('\n').slice(1,7).join('\n')}
 function consultPayload(){return{...consult,plan:consult.attach?planText():''}}
-async function payConsult(){
- if(CFG.demo){consultDone={id:'DEMO-'+Math.random().toString(36).slice(2,8).toUpperCase()};return openSheet('consultDone')}
- const r=await fetch('/api/consult-order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(consultPayload())});
+
+/* ───────── UPI ───────── */
+function upiLink(amount,note){return `upi://pay?pa=${CFG.upi.id}&pn=${encodeURIComponent(CFG.upi.name)}&am=${amount}.00&cu=INR&tn=${encodeURIComponent(note)}`}
+function loadScript(src){return new Promise((ok,no)=>{if(document.querySelector(`script[src="${src}"]`))return ok();const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('Could not load. Check your connection.'));document.head.appendChild(s)})}
+async function renderQR(){
+ const el=document.getElementById('qr'); if(!el||!payCtx)return;
+ const pre=new Image(); pre.alt=`UPI QR code to pay ${rupee(payCtx.amount)} to ${CFG.upi.name}`;
+ const ok=await new Promise(r=>{pre.onload=()=>r(true);pre.onerror=()=>r(false);pre.src=`qr/upi-${payCtx.kind}-${payCtx.amount}.png`});
+ if(ok){el.innerHTML='';el.appendChild(pre);return}
+ try{
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js');
+  el.innerHTML='';
+  new window.QRCode(el,{text:upiLink(payCtx.amount,payCtx.note),width:200,height:200,colorDark:'#172031',colorLight:'#ffffff',correctLevel:window.QRCode.CorrectLevel.M});
+  const img=el.querySelector('img'); if(img)img.alt=`UPI QR code to pay ${rupee(payCtx.amount)} to ${CFG.upi.name}`;
+ }catch(e){el.innerHTML='<p class="fine" style="padding:12px">QR code could not load. Pay to the UPI ID below instead.</p>'}
+}
+async function idToken(){return fb&&fb.auth.currentUser?fb.auth.currentUser.getIdToken():null}
+async function post(path,body,needAuth){
+ const tok=await idToken(); if(needAuth&&!tok)throw new Error('Sign in first.');
+ const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json',...(tok?{Authorization:'Bearer '+tok}:{})},body:JSON.stringify(body||{})});
  let d={};try{d=await r.json()}catch(e){}
- if(!r.ok)throw new Error(d.error||'Could not start the payment. Try again.');
- await loadScript('https://checkout.razorpay.com/v1/checkout.js');
- const done=await new Promise((ok,no)=>{
-  const rz=new window.Razorpay({key:d.keyId,order_id:d.orderId,amount:d.amount,currency:'INR',name:CFG.doctor.name,description:'One-to-one consultation',
-   prefill:{name:consult.name,email:consult.email,contact:consult.phone},theme:{color:'#172031'},
-   handler:resp=>fetch('/api/consult-verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(resp)})
-     .then(x=>x.json().then(j=>x.ok?ok(j):no(new Error(j.error||'Payment received. Confirmation is delayed; you will still get a reply.')))),
-   modal:{ondismiss:()=>no(new Error('Payment window closed. You have not been charged.'))}});
-  rz.on('payment.failed',e=>no(new Error((e&&e.error&&e.error.description)||'Payment failed. Try another method.')));
-  rz.open();
- });
- consultDone={id:done.bookingId};openSheet('consultDone');
+ if(!r.ok)throw new Error(d.error||'Something went wrong. Try again.');
+ return d;
+}
+async function submitUtr(utr){
+ if(payCtx.kind==='pro'){
+  if(CFG.demo){acct.pending={utr,amount:payCtx.amount};acct.rejected=null;demoSave();}
+  else await post('/api/upi-pro',{utr},true);
+  proDone={utr};openSheet('proSubmitted');refreshAcct();
+ } else {
+  if(CFG.demo){consultDone={id:'DEMO-'+Math.random().toString(36).slice(2,8).toUpperCase(),utr};}
+  else{const d=await post('/api/upi-consult',{...consultPayload(),utr},false);consultDone={id:d.bookingId,utr};}
+  openSheet('consultDone');
+ }
 }
 
 /* demo storage */
 const DKEY='poshan-demo-acct';
 function demoLoad(){try{Object.assign(acct,JSON.parse(localStorage.getItem(DKEY)||'{}'))}catch(e){}}
-function demoSave(){try{localStorage.setItem(DKEY,JSON.stringify({user:acct.user,plan:acct.plan,proUntil:acct.proUntil,status:acct.status}))}catch(e){}}
+function demoSave(){try{localStorage.setItem(DKEY,JSON.stringify({user:acct.user,plan:acct.plan,proUntil:acct.proUntil,pending:acct.pending,rejected:acct.rejected}))}catch(e){}}
 
 async function initAccount(){
  if(CFG.demo){demoLoad();acct.ready=true;refreshAcct();return}
@@ -754,12 +787,13 @@ async function initAccount(){
   A.onAuthStateChanged(fb.auth,u=>{
    if(fb.unsub){fb.unsub();fb.unsub=null}
    acct.user=u?{email:u.email||u.phoneNumber||'',name:u.displayName||''}:null;
-   acct.plan='free';acct.proUntil=0;acct.status='';
+   acct.plan='free';acct.proUntil=0;acct.pending=null;acct.rejected=null;
    if(u){fb.unsub=F.onSnapshot(F.doc(fb.db,'users',u.uid),s=>{
-     const d=s.data()||{};acct.plan=d.plan||'free';acct.proUntil=d.proUntil&&d.proUntil.toMillis?d.proUntil.toMillis():0;acct.status=d.subscriptionStatus||'';refreshAcct();
+     const d=s.data()||{};acct.plan=d.plan||'free';acct.proUntil=d.proUntil&&d.proUntil.toMillis?d.proUntil.toMillis():0;
+     acct.pending=d.proPending||null;acct.rejected=d.proRejected||null;refreshAcct();
     },()=>{})}
    acct.ready=true;refreshAcct();
-   if(u&&pendingPlan){const p=pendingPlan;pendingPlan=null;openSheet('plans');chosenPlan=p}
+   if(u&&pendingPro){pendingPro=false;openSheet('plans')}
   });
  }catch(e){acct.ready=true;refreshAcct();toast('Could not reach the sign-in service. Check your connection.')}
 }
@@ -772,7 +806,7 @@ function authMsg(e){
   'auth/popup-closed-by-user':'Google sign-in was closed before finishing.'})[c]||(e&&e.message&&!c?e.message:'Sign-in failed. Check your connection and try again.');
 }
 function afterSignIn(){
- if(pendingPlan){chosenPlan=pendingPlan;pendingPlan=null;openSheet('plans')}else{closeSheet();toast('Signed in')}
+ if(pendingPro){pendingPro=false;openSheet('plans')}else{closeSheet();toast('Signed in')}
 }
 async function signInGoogle(){
  if(CFG.demo){acct.user={email:'demo.user@gmail.com',name:'Demo User'};demoSave();refreshAcct();return afterSignIn()}
@@ -787,36 +821,8 @@ async function signInEmail(email,pw){
  afterSignIn();
 }
 async function signOutNow(){
- if(CFG.demo){acct.user=null;acct.plan='free';acct.proUntil=0;acct.status='';demoSave();refreshAcct();return}
+ if(CFG.demo){acct.user=null;acct.plan='free';acct.proUntil=0;acct.pending=null;acct.rejected=null;demoSave();refreshAcct();return}
  await fb.A.signOut(fb.auth);
-}
-function loadScript(src){return new Promise((ok,no)=>{if(document.querySelector(`script[src="${src}"]`))return ok();const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('Could not load the payment window. Check your connection.'));document.head.appendChild(s)})}
-async function api(path,body){
- const tok=await fb.auth.currentUser.getIdToken();
- const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+tok},body:JSON.stringify(body||{})});
- let d={};try{d=await r.json()}catch(e){}
- if(!r.ok)throw new Error(d.error||'Something went wrong. Try again.');
- return d;
-}
-async function subscribe(planId){
- if(!acct.user){pendingPlan=planId;return openSheet('signin')}
- if(CFG.demo)return openSheet('demopay');
- const plan=planById(planId);
- const d=await api('/api/create-subscription',{plan:planId});
- await loadScript('https://checkout.razorpay.com/v1/checkout.js');
- await new Promise((ok,no)=>{
-  const rz=new window.Razorpay({key:d.keyId,subscription_id:d.subscriptionId,name:'Poshan',description:`Poshan Pro · ${plan.label}`,
-   prefill:{email:acct.user.email||'',name:acct.user.name||''},theme:{color:'#172031'},
-   handler:resp=>api('/api/verify-subscription',resp).then(ok,no),
-   modal:{ondismiss:()=>no(new Error('Payment window closed. You have not been charged.'))}});
-  rz.on('payment.failed',r=>no(new Error((r&&r.error&&r.error.description)||'Payment failed. Try another method.')));
-  rz.open();
- });
- closeSheet();toast('Welcome to Poshan Pro');
-}
-async function cancelRenewal(){
- if(CFG.demo){acct.status='cancelled';demoSave();refreshAcct();return}
- await api('/api/cancel-subscription');
 }
 
 /* header */
@@ -831,7 +837,7 @@ function refreshAcct(){
   b.setAttribute('aria-label','Account');
  }
  renderResults();
- if(!$('#overlay').hidden&&sheetView==='account')openSheet('account');
+ if(!$('#overlay').hidden&&(sheetView==='account'||sheetView==='plans'))openSheet(sheetView);
 }
 
 /* sheet (modal) */
@@ -841,9 +847,10 @@ function openSheet(view){
  if($('#overlay').hidden)lastFocus=document.activeElement;
  const close=`<button type="button" class="x" data-close aria-label="Close">×</button>`;
  const demoNote=CFG.demo?'<p class="fine">Demo mode: no real account or payment is created.</p>':'';
+ const P=CFG.pro;
  if(view==='signin'){
   const create=emailMode==='create';
-  s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">${create?'Create your account':'Sign in to Poshan'}</h2><p class="sub">${pendingPlan?'Sign in first, then choose your Pro plan.':'Keep your Pro access on every device.'}</p></div>${close}</div>
+  s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">${create?'Create your account':'Sign in to Poshan'}</h2><p class="sub">${pendingPro?'Sign in first, so Pro is linked to your account.':'Keep your Pro access on every device.'}</p></div>${close}</div>
   <button type="button" class="btn block" id="g-in"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.6 9.2c0-.6-.1-1.2-.2-1.7H9v3.3h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.7-3.9 2.7-6.5z"/><path fill="#34A853" d="M9 18c2.4 0 4.5-.8 6-2.2l-2.9-2.2c-.8.5-1.8.9-3.1.9-2.4 0-4.4-1.6-5.1-3.8H.9v2.3A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.9 10.7a5.4 5.4 0 0 1 0-3.4V5H.9a9 9 0 0 0 0 8z"/><path fill="#EA4335" d="M9 3.6c1.3 0 2.5.5 3.4 1.4l2.6-2.6A9 9 0 0 0 .9 5l3 2.3C4.6 5.1 6.6 3.6 9 3.6z"/></svg>Continue with Google</button>
   <div class="or">or use email</div>
   <form id="emailform" class="sec" style="gap:10px" novalidate>
@@ -858,32 +865,52 @@ function openSheet(view){
   </div>${demoNote}`;
  } else if(view==='plans'){
   const ff=FEATURES[featureFocus], order=[featureFocus,...Object.keys(FEATURES).filter(k=>k!==featureFocus)].filter(k=>FEATURES[k]);
+  const pro=isPro(), pend=acct.pending, rej=acct.rejected;
   s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">${ff?'Unlock '+ff.title.toLowerCase():'Poshan Pro'}</h2><p class="sub">${ff?'Part of Poshan Pro, along with everything below.':'Everything in your plan, in full detail.'}</p></div>${close}</div>
   <ul class="feats">${order.map(k=>`<li${k===featureFocus?' class="hl"':''}>${FEATURES[k].line}</li>`).join('')}<li>New Pro features as they launch</li></ul>
-  <div class="plans" role="radiogroup" aria-label="Billing">${CFG.plans.map(p=>`<label class="plan"><input type="radio" name="plan" id="plan-${p.id}" value="${p.id}" ${p.id===chosenPlan?'checked':''}>
-   <span class="box">${p.note?`<span class="save">${esc(p.note)}</span>`:''}<span class="pl">${esc(p.label)}</span><span class="pp">${rupee(p.price)}</span><span class="pn">per ${p.per}${p.per==='year'?` · ${rupee(Math.round(p.price/12))}/month`:''}</span></span></label>`).join('')}</div>
+  <div class="plan1"><span class="pp">${rupee(P.price)}</span><span class="pn">for ${P.label} · one-time UPI payment · no auto-renewal</span></div>
+  ${pro?`<p class="okline">Pro is active until ${fmtDate(acct.proUntil)}. Paying again adds ${P.label}.</p>`:''}
+  ${pend?`<div class="pendbox"><b>Payment under verification</b><span>${rupee(pend.amount||P.price)} · UTR <span class="num">${esc(pend.utr)}</span></span><span class="fine">Pro unlocks as soon as it's checked, usually within a few hours.</span>${CFG.demo?'<button type="button" class="btn sm" id="demoapprove" style="justify-self:start">Simulate approval (demo)</button>':''}</div>`:''}
+  ${rej&&!pend?`<p class="formerr">We couldn't find your payment with UTR ${esc(rej.utr||'')}. Check the number and submit again, or message us on WhatsApp ${esc(CFG.doctor.phone)}.</p>`:''}
   <p class="formerr" id="payerr" hidden></p>
-  <button type="button" class="btn primary block" id="paybtn">Continue · ${rupee(planById(chosenPlan).price)}/${planById(chosenPlan).per}</button>
-  <p class="fine">Pay by UPI Autopay, card or net banking through Razorpay. Renews automatically; cancel anytime from your account. Prices include GST where applicable. See the <a href="terms.html" target="_blank" rel="noopener">terms</a> and <a href="refund.html" target="_blank" rel="noopener">refund policy</a>.</p>${demoNote}`;
- } else if(view==='demopay'){
-  const p=planById(chosenPlan);
-  s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">Demo checkout</h2><p class="sub">${esc(p.label)} plan · ${rupee(p.price)}/${p.per}</p></div>${close}</div>
-  <p style="margin:0">In the live app, the Razorpay payment window opens here for UPI, card or net banking. No money is charged in demo mode.</p>
-  <button type="button" class="btn primary block" id="demook">Simulate a successful payment</button>
-  <button type="button" class="btn block" data-open="plans">Back to plans</button>`;
+  ${pend?'':`<button type="button" class="btn primary block" id="paybtn">${acct.user?'':'Sign in and '}Pay ${rupee(P.price)} by UPI</button>`}
+  <p class="fine">Pay with GPay, PhonePe, Paytm or any UPI app. Or get ${freePro()} of Pro free with a ${rupee(CFG.consultFee)} consultation. See the <a href="terms.html" target="_blank" rel="noopener">terms</a> and <a href="refund.html" target="_blank" rel="noopener">refund policy</a>.</p>${demoNote}`;
+ } else if(view==='upipay'){
+  const c=payCtx;
+  s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">Pay ${rupee(c.amount)} by UPI</h2><p class="sub">${c.kind==='pro'?`Poshan Pro · ${P.label}`:`Consultation with ${esc(CFG.doctor.name)}`}</p></div>${close}</div>
+  <div class="upibox">
+   <div class="qr" id="qr" role="img" aria-label="UPI QR code"><span class="spin" aria-hidden="true"></span></div>
+   <div class="upito">Pay to <b>${esc(CFG.upi.name)}</b><span class="fine">Receives payments for ${esc(CFG.doctor.name)}</span></div>
+   <div class="upiid"><span class="num">${esc(CFG.upi.id)}</span><button type="button" class="btn sm" data-copy="${esc(CFG.upi.id)}">Copy UPI ID</button></div>
+   ${isPhone()?`<a class="btn primary block" href="${upiLink(c.amount,c.note)}">Open UPI app to pay ${rupee(c.amount)}</a>`:''}
+  </div>
+  <p class="fine">${isPhone()?`If the button doesn't open your app, copy the UPI ID and pay ${rupee(c.amount)} to it in GPay, PhonePe or Paytm, or screenshot the QR and scan it from your gallery.`:`Scan with GPay, PhonePe, Paytm or any UPI app on your phone and pay ${rupee(c.amount)}.`}</p>
+  <form id="utrform" class="sec" style="gap:10px" novalidate>
+   <div class="field"><label class="lbl" for="utr">After paying: UPI transaction ID (UTR)</label><input type="text" id="utr" inputmode="numeric" autocomplete="off" maxlength="16" placeholder="12-digit number"></div>
+   <p class="fine" style="margin-top:-4px">Find it in your UPI app under the payment's details, shown as "UPI transaction ID", "UTR" or "UPI Ref No."</p>
+   <p class="formerr" id="utrerr" hidden></p>
+   <button type="submit" class="btn primary block">I have paid · Submit</button>
+  </form>
+  <button type="button" class="btn block" data-open="${c.kind==='pro'?'plans':'consultPreview'}">Back</button>${demoNote}`;
+  renderQR();
+ } else if(view==='proSubmitted'){
+  s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">Payment submitted</h2><p class="sub">UTR <span class="num" style="user-select:all">${esc(proDone?proDone.utr:'')}</span></p></div>${close}</div>
+  <ul class="feats"><li>We've received your payment details</li><li>Pro unlocks as soon as the payment is checked, usually within a few hours</li><li>The Pro badge appears at the top when it's active</li></ul>
+  <p class="fine">Not active after 24 hours? WhatsApp ${esc(CFG.doctor.phone)} with your UTR.</p>
+  ${CFG.demo?'<button type="button" class="btn block" id="demoapprove">Simulate approval (demo)</button>':''}
+  <button type="button" class="btn primary block" data-close>Done</button>`;
  } else if(view==='account'){
-  const u=acct.user||{}, pro=isPro(), until=acct.proUntil?new Date(acct.proUntil).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):'';
-  const cancelled=/cancel/.test(acct.status);
+  const u=acct.user||{}, pro=isPro(), left=pro?Math.ceil((acct.proUntil-Date.now())/864e5):0;
   s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">Your account</h2></div>${close}</div>
   <dl class="kv"><dt>Name</dt><dd>${esc(u.name||'—')}</dd><dt>Email</dt><dd>${esc(u.email||'—')}</dd>
    <dt>Plan</dt><dd>${pro?'<span class="probadge">Pro</span>':'<span class="freebadge">Free</span>'}</dd>
-   ${pro?`<dt>${cancelled?'Access until':'Renews on'}</dt><dd class="num">${until}</dd>`:''}</dl>
-  ${pro?'':'<button type="button" class="btn primary block" data-open="plans">Upgrade to Pro</button>'}
-  ${pro&&!cancelled?'<button type="button" class="btn block" id="cancelsub">Cancel renewal</button>':''}
-  ${pro&&cancelled?'<p class="fine">Renewal is cancelled. You keep Pro until the date above.</p>':''}
+   ${pro?`<dt>Pro until</dt><dd class="num">${fmtDate(acct.proUntil)}</dd>`:''}
+   ${acct.pending?`<dt>Payment</dt><dd>Under verification · UTR <span class="num">${esc(acct.pending.utr)}</span></dd>`:''}</dl>
+  ${!pro&&!acct.pending?'<button type="button" class="btn primary block" data-open="plans">Get Pro</button>':''}
+  ${pro&&left<=15&&!acct.pending?`<button type="button" class="btn primary block" data-open="plans">Extend Pro by ${P.label}</button>`:''}
   <p class="formerr" id="accerr" hidden></p>
   <button type="button" class="btn block" id="signout">Sign out</button>
-  ${CFG.supportEmail?`<p class="fine">Help with billing: <span style="user-select:all">${esc(CFG.supportEmail)}</span></p>`:''}${demoNote}`;
+  <p class="fine">Help with payments: WhatsApp ${esc(CFG.doctor.phone)}</p>${demoNote}`;
  } else if(view==='consult'){
   if(!consult.name&&state.name)consult.name=state.name;
   if(!consult.age&&state.age)consult.age=String(state.age);
@@ -899,7 +926,7 @@ function openSheet(view){
     <div class="field"><label class="lbl" for="c-sex">Sex</label><select id="c-sex"><option value="">Select</option>${sel(c.sex,['Male','Female'])}</select></div>
    </div>
    <div class="field"><label class="lbl" for="c-phone">WhatsApp number</label><input type="tel" id="c-phone" inputmode="tel" autocomplete="tel" placeholder="98xxxxxxxx" value="${esc(c.phone)}"></div>
-   <div class="field"><label class="lbl" for="c-email">Email <em>optional</em></label><input type="text" id="c-email" inputmode="email" autocomplete="email" value="${esc(c.email)}"></div>
+   <div class="field"><label class="lbl" for="c-email">Email <em>optional · your free Pro is added to the Poshan account with this email</em></label><input type="text" id="c-email" inputmode="email" autocomplete="email" value="${esc(c.email)}"></div>
    <div class="field"><label class="lbl" for="c-concern">Main concern</label><select id="c-concern"><option value="">Select</option>${sel(c.concern,CONCERNS)}</select></div>
    <div class="field"><label class="lbl" for="c-details">Describe your concern</label><textarea id="c-details" rows="4" placeholder="Goals, current diet, medicines, recent reports, routine…">${esc(c.details)}</textarea></div>
    <div class="field"><span class="lbl">Consultation by</span><div class="seg">
@@ -920,20 +947,21 @@ function openSheet(view){
   <div class="pvbox">${esc(c.details)}</div>
   ${pt?`<div><div class="lbl" style="margin-bottom:4px">Attached plan</div><div class="sharepv">${esc(pt).replace(/\n/g,'<br>')}</div></div>`:''}
   <div class="paysum"><span>Consultation fee</span><b class="num">${rupee(CFG.consultFee)}</b></div>
-  <p class="fine">Includes the call, a personalised diet plan, a home exercise plan and one follow-up within 7 days.</p>
-  <p class="formerr" id="cperr" hidden></p>
-  <button type="button" class="btn primary block" id="cpay">Pay ${rupee(CFG.consultFee)} and book</button>
+  <p class="fine">Includes the call, a personalised diet plan, a home exercise plan, one follow-up within 7 days and ${freePro()} of Poshan Pro.</p>
+  <button type="button" class="btn primary block" id="cpay">Continue to pay ${rupee(CFG.consultFee)} by UPI</button>
   <button type="button" class="btn block" data-open="consult">Edit details</button>
-  <p class="fine">Pay by UPI, card or net banking through Razorpay. You'll be contacted on WhatsApp within 1–2 days to fix the time of your ${modeLabel(c.mode).toLowerCase()}.</p>${demoNote}`;
+  <p class="fine">You'll be contacted on WhatsApp within 1–2 days to fix the time of your ${modeLabel(c.mode).toLowerCase()}.</p>${demoNote}`;
  } else if(view==='consultDone'){
-  s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">Consultation booked</h2><p class="sub">Booking ID <span class="num" style="user-select:all">${esc(consultDone?consultDone.id:'')}</span></p></div>${close}</div>
-  <ul class="feats"><li>Payment received</li><li>${esc(CFG.doctor.name)} has your details</li><li>You'll be contacted on WhatsApp within 1–2 days to fix the time of your ${modeLabel(consult.mode).toLowerCase()}</li><li>Your diet and exercise plan arrives on WhatsApp within 24 hours of the call</li></ul>
+  const c=consult;
+  s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">Booking received</h2><p class="sub">Booking ID <span class="num" style="user-select:all">${esc(consultDone?consultDone.id:'')}</span></p></div>${close}</div>
+  <ul class="feats"><li>Payment details received (UTR <span class="num">${esc(consultDone?consultDone.utr:'')}</span>) and being verified</li><li>${esc(CFG.doctor.name)} has your details</li><li>You'll be contacted on WhatsApp within 1–2 days to fix the time of your ${modeLabel(c.mode).toLowerCase()}</li><li>Your diet and exercise plan arrives on WhatsApp within 24 hours of the call</li>
+  <li>${c.email?`${freePro()} of Pro is added to the Poshan account with ${esc(c.email)} once payment is verified`:`For your free Pro, sign in to Poshan and send us your account email on WhatsApp`}</li></ul>
   <p class="fine">Questions about your booking: ${esc(CFG.doctor.phone)} (WhatsApp) or <span style="user-select:all">${esc(CFG.doctor.email)}</span></p>
-  ${CFG.demo?'<p class="fine">Demo mode: no payment was taken and no message was sent.</p>':''}
+  ${CFG.demo?'<p class="fine">Demo mode: no payment was checked and no message was sent.</p>':''}
   <button type="button" class="btn primary block" data-close>Done</button>`;
  }
  $('#overlay').hidden=false;
- const f=s.querySelector('input,button:not([data-close])'); if(f)f.focus();
+ const f=s.querySelector('input,button:not([data-close])'); if(f&&view!=='upipay')f.focus();
 }
 function closeSheet(){$('#overlay').hidden=true;sheetView='';if(lastFocus&&lastFocus.focus)lastFocus.focus()}
 function showErr(id,msg){const e=$(id);if(e){e.textContent=msg;e.hidden=false}}
@@ -951,24 +979,29 @@ document.addEventListener('click',async e=>{
  try{
   if(t.id==='g-in'){busy(t,true);await signInGoogle()}
   else if(t.id==='toggleMode'){emailMode=emailMode==='create'?'signin':'create';openSheet('signin')}
-  else if(t.id==='forgot'){const em=$('#em').value.trim();if(!em)return showErr('#autherr','Enter your email above, then tap Forgot password.');if(!CFG.demo)await fb.A.sendPasswordResetEmail(fb.auth,em);showErr('#autherr','');$('#autherr').hidden=true;toast('Password reset email sent')}
-  else if(t.id==='paybtn'){busy(t,true,' Opening payment');await subscribe(chosenPlan)}
-  else if(t.id==='demook'){acct.plan='pro';acct.proUntil=Date.now()+(planById(chosenPlan).per==='year'?365:30)*864e5;acct.status='active';demoSave();closeSheet();refreshAcct();toast('Welcome to Poshan Pro')}
-  else if(t.id==='cancelsub'){if(t.dataset.confirm){busy(t,true);await cancelRenewal();toast('Renewal cancelled');openSheet('account')}else{t.dataset.confirm='1';t.textContent='Tap again to confirm cancellation'}}
+  else if(t.id==='forgot'){const em=$('#em').value.trim();if(!em)return showErr('#autherr','Enter your email above, then tap Forgot password.');if(!CFG.demo)await fb.A.sendPasswordResetEmail(fb.auth,em);$('#autherr').hidden=true;toast('Password reset email sent')}
+  else if(t.id==='paybtn'){if(!acct.user){pendingPro=true;return openSheet('signin')}payCtx={kind:'pro',amount:CFG.pro.price,note:'Poshan Pro'};openSheet('upipay')}
+  else if(t.id==='cpay'){payCtx={kind:'consult',amount:CFG.consultFee,note:'Poshan consultation'};openSheet('upipay')}
+  else if(t.id==='demoapprove'){acct.plan='pro';acct.proUntil=Math.max(Date.now(),acct.proUntil||0)+CFG.pro.days*864e5;acct.pending=null;acct.rejected=null;demoSave();closeSheet();refreshAcct();toast('Pro is now active')}
   else if(t.id==='signout'){busy(t,true);await signOutNow();closeSheet();toast('Signed out')}
-  else if(t.id==='cpay'){busy(t,true,' Opening payment');await payConsult()}
  }catch(err){
   busy(t,false);
-  const id=sheetView==='signin'?'#autherr':sheetView==='plans'?'#payerr':sheetView==='consultPreview'?'#cperr':'#accerr';
+  const id=sheetView==='signin'?'#autherr':sheetView==='plans'?'#payerr':'#accerr';
   showErr(id,sheetView==='signin'?authMsg(err):(err.message||'Something went wrong. Try again.'));
  }
 });
-document.addEventListener('change',e=>{if(e.target.name==='plan'){chosenPlan=e.target.value;const p=planById(chosenPlan),b=$('#paybtn');if(b)b.textContent=`Continue · ${rupee(p.price)}/${p.per}`}});
 document.addEventListener('input',e=>{if(sheetView==='consult'&&e.target.closest('#consultform'))readConsult()});
 document.addEventListener('submit',e=>{
  if(e.target.id!=='consultform')return; e.preventDefault();
  readConsult(); const m=consultErrors(); if(m)return showErr('#cerr',m);
  openSheet('consultPreview');
+});
+document.addEventListener('submit',async e=>{
+ if(e.target.id!=='utrform')return; e.preventDefault();
+ const utr=$('#utr').value.replace(/\s/g,''), btn=e.target.querySelector('[type=submit]');
+ if(!/^\d{12}$/.test(utr))return showErr('#utrerr','Enter the 12-digit UPI transaction ID (numbers only) from your payment.');
+ busy(btn,true,' Submitting');
+ try{await submitUtr(utr)}catch(err){busy(btn,false);showErr('#utrerr',err.message||'Could not submit. Try again.')}
 });
 document.addEventListener('submit',async e=>{
  if(e.target.id!=='emailform')return; e.preventDefault();

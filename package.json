@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Poshan nutrition planner with Pro subscriptions",
-  "engines": { "node": ">=18" },
+  "description": "Poshan nutrition planner with UPI payments for Pro and consultations",
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
-    "firebase-admin": "^12.1.0",
-    "razorpay": "^2.9.4"
+    "firebase-admin": "^12.1.0"
   }
 }
