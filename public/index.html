@@ -1,0 +1,971 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Calorie, macro and micronutrient planner for Indian adults by Dr Rajesh Bandgar, MBBS, MD.">
+<meta name="theme-color" content="#172031">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Poshan Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: app shell — input panel (sticky on desktop) beside a results column; stacks on phones */
+:root{
+  --bg:#F2F4F7; --surface:#FFFFFF; --sunk:#E9EDF2; --ink:#172031; --muted:#576276; --line:#D8DDE5;
+  --accent:#C2820E; --accent-ink:#835500; --accent-soft:#F7E9CC; --on-accent:#1B1404;
+  --protein:#3B5BA5; --carb:#D09722; --fat:#6B8A2A;
+  --ok:#2C7955; --warn:#AE501B; --warn-soft:#FBE7DB;
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F131A; --surface:#161C26; --sunk:#1D2532; --ink:#E6EAF1; --muted:#9AA5B6; --line:#283142;
+  --accent:#E3A93A; --accent-ink:#F0BF5E; --accent-soft:#3A2C12;
+  --protein:#7F9DE2; --carb:#E3A93A; --fat:#A6BC5E;
+  --ok:#5CC08F; --warn:#F08A55; --warn-soft:#3A2116; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0F131A; --surface:#161C26; --sunk:#1D2532; --ink:#E6EAF1; --muted:#9AA5B6; --line:#283142;
+  --accent:#E3A93A; --accent-ink:#F0BF5E; --accent-soft:#3A2C12;
+  --protein:#7F9DE2; --carb:#E3A93A; --fat:#A6BC5E;
+  --ok:#5CC08F; --warn:#F08A55; --warn-soft:#3A2116; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.5 var(--f-body);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:20px 48px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;font-weight:700;letter-spacing:-.01em}
+.mono,.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* header */
+.top{display:flex;align-items:center;gap:12px;padding-bottom:18px;border-bottom:1px solid var(--line);margin-bottom:20px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px}
+.brand h1{font-size:24px}
+.brand p{margin:0;color:var(--muted);font-size:13px}
+.top .by{margin-left:auto;font-size:12px;color:var(--muted)}
+
+.grid{display:grid;gap:20px}
+@media (min-width:920px){.grid{grid-template-columns:380px minmax(0,1fr);align-items:start}.panel{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);max-height:calc(100vh - 32px);overflow:auto}}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;gap:18px}
+.sec{display:grid;gap:12px}
+.sec + .sec{border-top:1px solid var(--line);padding-top:16px}
+.sec h2{font-size:15px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.field{display:grid;gap:5px;min-width:0}
+.lbl{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.lbl em{font-style:normal;text-transform:none;letter-spacing:0;font-weight:400}
+input[type=text],input[type=number],select{width:100%;height:40px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:500 15px var(--f-body);padding:0 10px;min-width:0}
+input[type=number]{font-family:var(--f-mono)}
+input:focus-visible,select:focus-visible,button:focus-visible,.seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+.err{color:var(--warn);font-size:12px}
+
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg label{position:relative}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg span{display:inline-block;padding:8px 12px;border:1px solid var(--line);border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;background:var(--surface);color:var(--ink);transition:background .15s,border-color .15s}
+.seg input:checked + span{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+
+.tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--sunk);border-radius:9px;padding:3px}
+.tabs button{border:0;background:transparent;color:var(--muted);font:600 13px var(--f-body);padding:8px;border-radius:7px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+
+.log{display:grid;gap:6px}
+.logrow{display:grid;grid-template-columns:minmax(0,1fr) 72px 32px;gap:6px;align-items:center}
+.logrow select{font-size:13px}
+.x{width:32px;height:32px;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:8px;cursor:pointer;font-size:16px;line-height:1}
+.x:hover{color:var(--warn);border-color:var(--warn)}
+.logfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 13px var(--f-body);padding:8px 12px;border-radius:8px;cursor:pointer}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.hrs{font-size:13px}
+.hrs.ok{color:var(--ok)} .hrs.bad{color:var(--warn)}
+.palnote{font-size:12px;color:var(--muted)}
+
+/* results */
+.results{display:grid;gap:20px;min-width:0}
+.banner{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--accent-soft);color:var(--ink);border-radius:10px;padding:10px 14px;font-size:13px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;min-width:0}
+.card h2{font-size:18px;margin-bottom:4px}
+.card .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+
+.hero{display:grid;gap:16px}
+.hero .who{font-size:13px;color:var(--muted)}
+.big{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.big .kcal{font-family:var(--f-display);font-weight:700;font-size:clamp(48px,9vw,72px);line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.big .unit{font-family:var(--f-mono);color:var(--muted);font-size:14px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--sunk);color:var(--ink)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stat{background:var(--surface);padding:10px 12px}
+.stat .k{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.stat .v{font-family:var(--f-mono);font-size:18px;font-weight:500;font-variant-numeric:tabular-nums}
+.note{font-size:12.5px;color:var(--muted);margin:0}
+.note.warn{color:var(--warn)}
+
+.ftable{width:100%;border-collapse:collapse;font-size:14px}
+.ftable th{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600;text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+.ftable td{padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+.ftable td.num,.ftable th.num{text-align:right;white-space:nowrap}
+.ftable tr.primary td:first-child{font-weight:600}
+.ftable .cite{display:block;font-size:12px;color:var(--muted);font-weight:400}
+.bar{height:6px;background:var(--sunk);border-radius:3px;min-width:60px}
+.bar i{display:block;height:100%;border-radius:3px;background:var(--muted)}
+tr.primary .bar i{background:var(--accent)}
+.tag{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-ink);margin-left:6px}
+.scroll{overflow-x:auto}
+
+.macro{display:grid;gap:18px;grid-template-columns:150px minmax(0,1fr);align-items:center}
+@media (max-width:560px){.macro{grid-template-columns:1fr;justify-items:center}}
+.donut{width:150px;height:150px}
+.mcells{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%}
+.mcell{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:2px}
+.mcell .k{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600}
+.mcell .k i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.mcell .g{font-family:var(--f-mono);font-size:22px;font-weight:500}
+.mcell .d{font-size:12px;color:var(--muted);font-family:var(--f-mono)}
+.limits{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:14px}
+.lim{background:var(--sunk);border-radius:8px;padding:8px 10px;font-size:13px}
+.lim b{font-family:var(--f-mono);font-weight:500}
+
+.meals{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.meal{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.meal .k{font-size:12px;color:var(--muted);font-weight:600}
+.meal .v{font-family:var(--f-mono);font-size:18px}
+.meal .d{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.mealbar{display:flex;height:8px;border-radius:4px;overflow:hidden;gap:2px;margin-bottom:12px}
+.mealbar i{display:block;background:var(--accent);opacity:.35}
+.mealbar i:nth-child(odd){opacity:.75}
+
+.micro td:nth-child(3){font-size:13px;color:var(--muted);min-width:220px}
+.micro td:first-child{font-weight:600;white-space:nowrap}
+
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.copied{font-size:13px;color:var(--ok)}
+textarea.fallback{width:100%;min-height:160px;font:13px var(--f-mono);border:1px solid var(--line);border-radius:8px;background:var(--sunk);color:var(--ink);padding:10px}
+.method{font-size:13px;color:var(--muted);display:grid;gap:8px}
+.method ul{margin:0;padding-left:18px;display:grid;gap:4px}
+.method p{margin:0;max-width:72ch}
+.doc{display:grid;grid-template-columns:56px minmax(0,1fr);gap:14px;align-items:start}
+.docmark{width:56px;height:56px;border-radius:50%;background:var(--ink);color:var(--surface);display:grid;place-items:center;font:700 20px var(--f-display);letter-spacing:.02em}
+.cred{margin:2px 0 0;font-weight:600;color:var(--accent-ink);font-size:14px}
+.certs{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.certs li{font-size:12.5px;padding:5px 10px;border:1px solid var(--line);border-radius:999px;background:var(--sunk)}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+/* account + paywall */
+.acct{margin-left:auto;display:flex;gap:8px;align-items:center}
+.acctbtn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:4px 12px 4px 4px;font:600 13px var(--f-body);cursor:pointer;min-height:38px}
+.acctbtn.out{padding:8px 16px;background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.av{width:30px;height:30px;border-radius:50%;background:var(--ink);color:var(--surface);display:grid;place-items:center;font:700 12px var(--f-display)}
+.probadge,.freebadge,.demochip{font:700 10px var(--f-body);letter-spacing:.08em;padding:3px 8px;border-radius:999px;vertical-align:middle;text-transform:uppercase}
+.probadge{background:var(--accent);color:var(--on-accent)}
+.freebadge{background:var(--sunk);color:var(--muted)}
+.demochip{border:1px dashed var(--muted);color:var(--muted)}
+.overlay{position:fixed;inset:0;background:rgba(8,11,16,.55);display:grid;place-items:end center;z-index:50;padding:12px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+@media (min-width:600px){.overlay{place-items:center}}
+.sheet{background:var(--surface);color:var(--ink);border-radius:18px;width:100%;max-width:420px;max-height:calc(100% - 12px);overflow:auto;padding:22px;display:grid;gap:14px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.sheethead{display:flex;justify-content:space-between;align-items:start;gap:10px}
+.sheet h2{font-size:22px}
+.sheet .sub{margin:0;color:var(--muted);font-size:14px}
+.btn.block{width:100%;height:46px;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px}
+.or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent-ink);font:600 13px var(--f-body);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.formerr{color:var(--warn);font-size:13px;margin:0}
+.fine{font-size:12px;color:var(--muted);margin:0}
+.feats{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.feats li{display:grid;grid-template-columns:20px 1fr;gap:8px;font-size:14px}
+.feats li::before{content:"✓";color:var(--ok);font-weight:700}
+.plans{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.plan{position:relative;display:block;cursor:pointer}
+.plan input{position:absolute;opacity:0;pointer-events:none}
+.plan .box{display:grid;gap:2px;border:1.5px solid var(--line);border-radius:12px;padding:12px;height:100%}
+.plan input:checked + .box{border-color:var(--accent);background:var(--accent-soft)}
+.plan input:focus-visible + .box{outline:2px solid var(--accent);outline-offset:2px}
+.plan .pl{font-size:13px;font-weight:600}
+.plan .pp{font:500 22px var(--f-mono)}
+.plan .pn{font-size:12px;color:var(--muted)}
+.plan .save{position:absolute;top:-9px;right:10px;font:700 10px var(--f-body);letter-spacing:.06em;text-transform:uppercase;background:var(--ok);color:var(--surface);padding:2px 7px;border-radius:999px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px}
+.kv dt{color:var(--muted)} .kv dd{margin:0;font-weight:600;min-width:0;overflow-wrap:anywhere}
+.lockcard{position:relative}
+.lockpv{position:relative;margin:4px 0 16px;pointer-events:none;user-select:none}
+.lockpv::after{content:"";position:absolute;inset:auto 0 0 0;height:40%;background:linear-gradient(to bottom,transparent,var(--surface))}
+.mask{font-family:var(--f-mono);color:var(--muted);letter-spacing:.1em;font-size:.8em;opacity:.7}
+.maskline{display:block;height:10px;border-radius:5px;background:var(--sunk);width:85%}
+tr:nth-child(even) .maskline{width:65%}
+.sharepv{display:grid;gap:4px;font:13px/1.5 var(--f-mono);background:var(--sunk);border-radius:8px;padding:12px}
+.feats li.hl{font-weight:700}
+.contacts{display:grid;gap:0;margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
+.contacts .lbl{margin-bottom:4px}
+.crow{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"k a" "v a";gap:0 10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.crow:last-child{border-bottom:0}
+.ck{grid-area:k;font-size:12px;color:var(--muted)} .cv{grid-area:v;font-weight:600;overflow-wrap:anywhere;user-select:all}
+.cacts{grid-area:a;display:flex;gap:6px}
+.btn.sm{padding:6px 10px;font-size:12.5px;text-decoration:none;display:inline-flex;align-items:center}
+.cfee{display:flex;align-items:baseline;gap:8px;margin-bottom:12px}
+.cprice{font:600 28px var(--f-mono);font-variant-numeric:tabular-nums}
+textarea{width:100%;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:15px/1.45 var(--f-body);padding:8px 10px;resize:vertical;min-width:0}
+textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.check{display:flex;gap:8px;align-items:center;font-size:14px}
+.check input{width:18px;height:18px;accent-color:var(--ink)}
+.pvbox{background:var(--sunk);border-radius:8px;padding:10px 12px;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.paysum{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:12px;font-size:15px}
+.paysum b{font-size:20px;font-weight:500}
+.skel{display:grid;gap:10px;margin:6px 0 16px}
+.skel i{display:block;height:12px;border-radius:6px;background:var(--sunk)}
+.skel i:nth-child(1){width:92%}.skel i:nth-child(2){width:74%}.skel i:nth-child(3){width:84%}.skel i:nth-child(4){width:60%}
+.lockrow{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lockrow .fine{flex:1;min-width:160px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:10px;font-size:14px;z-index:60;max-width:calc(100% - 32px);box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.spin{width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}.spin{animation-duration:2s}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true">
+        <circle cx="18" cy="18" r="14" fill="none" stroke="var(--line)" stroke-width="6"/>
+        <circle cx="18" cy="18" r="14" fill="none" stroke="var(--protein)" stroke-width="6" stroke-dasharray="17.6 70.4" transform="rotate(-90 18 18)"/>
+        <circle cx="18" cy="18" r="14" fill="none" stroke="var(--carb)" stroke-width="6" stroke-dasharray="44 44" stroke-dashoffset="-17.6" transform="rotate(-90 18 18)"/>
+        <circle cx="18" cy="18" r="14" fill="none" stroke="var(--fat)" stroke-width="6" stroke-dasharray="22 66" stroke-dashoffset="-61.6" transform="rotate(-90 18 18)"/>
+      </svg>
+      <div>
+        <h1>Poshan</h1>
+        <p>Dr Rajesh Bandgar · MBBS, MD</p>
+      </div>
+    </div>
+    <div class="acct">
+      <span class="demochip" id="demochip" hidden>Demo</span>
+      <button type="button" class="btn" id="install" hidden>Install app</button>
+      <button type="button" class="acctbtn out" id="acctbtn">Sign in</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <form class="panel" id="form" novalidate>
+      <div class="sec">
+        <h2>Profile</h2>
+        <div class="field"><label class="lbl" for="name">Name</label><input type="text" id="name" autocomplete="name"></div>
+        <div class="row">
+          <div class="field"><label class="lbl" for="age">Age <em>years</em></label><input type="number" id="age" min="18" max="90" inputmode="numeric"></div>
+          <div class="field"><span class="lbl">Sex</span>
+            <div class="seg" role="radiogroup" aria-label="Sex">
+              <label><input type="radio" name="sex" id="sex-m" value="m"><span>Male</span></label>
+              <label><input type="radio" name="sex" id="sex-f" value="f"><span>Female</span></label>
+            </div></div>
+        </div>
+        <div class="row3">
+          <div class="field"><label class="lbl" for="height">Height <em>cm</em></label><input type="number" id="height" min="120" max="230" step="0.5" inputmode="decimal"></div>
+          <div class="field"><label class="lbl" for="weight">Weight <em>kg</em></label><input type="number" id="weight" min="30" max="250" step="0.1" inputmode="decimal"></div>
+          <div class="field"><label class="lbl" for="bf">Body fat <em>%</em></label><input type="number" id="bf" min="3" max="60" step="0.5" placeholder="opt." inputmode="decimal"></div>
+        </div>
+        <div class="err" id="err" hidden></div>
+      </div>
+
+      <div class="sec">
+        <h2>Diet and goal</h2>
+        <div class="field"><span class="lbl">Dietary pattern</span>
+          <div class="seg" role="radiogroup" aria-label="Dietary pattern" id="diets"></div></div>
+        <div class="field"><label class="lbl" for="goal">Goal</label><select id="goal"></select></div>
+      </div>
+
+      <div class="sec">
+        <h2>Activity</h2>
+        <div class="tabs" role="tablist">
+          <button type="button" role="tab" id="tab-log" aria-selected="true">24-hour log</button>
+          <button type="button" role="tab" id="tab-level" aria-selected="false">Quick level</button>
+        </div>
+        <div id="mode-log" class="log">
+          <div class="log" id="logrows"></div>
+          <div class="logfoot">
+            <button type="button" class="btn" id="addrow">+ Add activity</button>
+            <span class="hrs num" id="hrs"></span>
+          </div>
+          <p class="palnote">Each activity is weighted by its physical activity ratio (multiple of BMR). The time-weighted average gives your PAL.</p>
+        </div>
+        <div id="mode-level" class="field" hidden>
+          <label class="lbl" for="level">Activity level</label>
+          <select id="level"></select>
+        </div>
+      </div>
+    </form>
+
+    <main class="results" id="results" aria-live="polite"></main>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"></div></div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="/config.js"></script>
+<script>
+(function(){
+const PAR=[
+ {id:'sleep',label:'Sleeping',par:1.0},
+ {id:'sit',label:'Sitting: desk work, TV, reading',par:1.5},
+ {id:'eat',label:'Eating',par:1.5},
+ {id:'care',label:'Bathing, dressing',par:2.3},
+ {id:'drive',label:'Driving, commuting',par:2.0},
+ {id:'stand',label:'Standing, light work',par:2.0},
+ {id:'house',label:'Household chores',par:2.5},
+ {id:'walk',label:'Walking, normal pace',par:3.2},
+ {id:'mod',label:'Moderate exercise: brisk walk, cycling, gym',par:4.5},
+ {id:'manual',label:'Heavy manual work',par:5.0},
+ {id:'vig',label:'Vigorous sport, running',par:7.0}
+];
+const PARMAP=Object.fromEntries(PAR.map(p=>[p.id,p]));
+const LEVELS={
+ sed:{label:'Sedentary: desk job, little exercise',pal:1.45},
+ light:{label:'Lightly active: some walking, light exercise',pal:1.6},
+ mod:{label:'Moderately active: exercise 3–5 days/week',pal:1.75},
+ high:{label:'Very active: daily training or active job',pal:1.95},
+ xtra:{label:'Extremely active: heavy labour or athlete',pal:2.2}
+};
+const GOALS={
+ maintain:{label:'Maintain weight',adj:0},
+ mild:{label:'Lose slowly (about 0.25 kg/week)',adj:-250},
+ lose:{label:'Lose (about 0.5 kg/week)',adj:-500},
+ gain:{label:'Gain muscle (lean surplus)',adj:300}
+};
+const DIETS={veg:'Vegetarian',egg:'Eggetarian',nonveg:'Non-vegetarian',vegan:'Vegan',jain:'Jain'};
+const MEALS=[['Breakfast',.25],['Mid-morning',.10],['Lunch',.30],['Evening snack',.10],['Dinner',.25]];
+
+/* ICMR-NIN 2020 adult RDAs (sedentary reference adult) */
+const MICROS=[
+ {n:'Calcium',u:'mg',m:1000,f:1000,s:{base:'Milk, curd, paneer, ragi, til (sesame), rajgira',vegan:'Ragi, til, tofu, fortified soy milk, rajgira',nonveg:'+ small fish eaten with bones'}},
+ {n:'Iron',u:'mg',m:19,f:29,s:{base:'Garden cress seeds (halim), rajgira, ragi, bajra, dark leafy greens, jaggery; pair with lemon or amla',egg:'+ egg yolk',nonveg:'+ liver, mutton, fish'}},
+ {n:'Zinc',u:'mg',m:17,f:13.2,s:{base:'Pulses, chana, nuts, pumpkin seeds, whole grains',egg:'+ eggs',nonveg:'+ meat, shellfish, eggs'}},
+ {n:'Magnesium',u:'mg',m:440,f:370,s:{base:'Whole grains, pulses, nuts, leafy greens'}},
+ {n:'Folate',u:'µg',m:300,f:220,s:{base:'Green leafy vegetables, dals, chana, rajma',nonveg:'+ liver'}},
+ {n:'Vitamin B12',u:'µg',m:2.5,f:2.5,s:{base:'Milk, curd, paneer; a supplement is often needed',egg:'Eggs, milk, curd, paneer',nonveg:'Fish, meat, eggs, dairy',vegan:'Fortified foods or a supplement are needed'}},
+ {n:'Vitamin A',u:'µg',m:1000,f:840,s:{base:'Carrot, pumpkin, papaya, mango, leafy greens, milk, ghee',jain:'Pumpkin, papaya, mango, leafy greens, milk, ghee',vegan:'Carrot, pumpkin, papaya, mango, leafy greens',nonveg:'+ liver, fish'}},
+ {n:'Vitamin D',u:'IU',m:600,f:600,s:{base:'Midday sun on arms and face; fortified milk or oil',egg:'+ egg yolk',nonveg:'+ mackerel (bangda), sardines (tarli), egg yolk'}},
+ {n:'Vitamin C',u:'mg',m:80,f:65,s:{base:'Amla, guava, citrus fruits, capsicum, tomato, sprouts'}},
+ {n:'Iodine',u:'µg',m:150,f:150,s:{base:'Iodised salt, within 5 g salt a day',nonveg:'+ seafood'}},
+ {n:'Potassium',u:'mg',m:3500,f:3500,s:{base:'Banana, coconut water, dals, leafy greens, potato',jain:'Banana, coconut water, dals, leafy greens'}}
+];
+
+const SAMPLE={name:'Priya',age:32,sex:'f',height:160,weight:58,bf:'',diet:'veg',goal:'maintain',mode:'log',level:'mod',
+ log:[['sleep',7.5],['sit',8],['eat',1.5],['care',1],['drive',1.5],['house',1.5],['walk',1],['mod',1],['stand',1]]};
+const KEY='poshan-v1';
+let state, isSample=false;
+try{state=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){state=null}
+if(!state||!state.log){state=JSON.parse(JSON.stringify(SAMPLE));isSample=true}
+
+const $=s=>document.querySelector(s);
+const fmt=n=>Math.round(n).toLocaleString('en-IN');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* build static controls */
+$('#diets').innerHTML=Object.entries(DIETS).map(([k,v])=>`<label><input type="radio" name="diet" id="diet-${k}" value="${k}"><span>${v}</span></label>`).join('');
+$('#goal').innerHTML=Object.entries(GOALS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('');
+$('#level').innerHTML=Object.entries(LEVELS).map(([k,v])=>`<option value="${k}">${v.label} · PAL ${v.pal}</option>`).join('');
+const actOpts=PAR.map(p=>`<option value="${p.id}">${p.label} (×${p.par})</option>`).join('');
+
+function fillForm(){
+ ['name','age','height','weight','bf','goal','level'].forEach(k=>{$('#'+k).value=state[k]??''});
+ document.querySelectorAll('input[name=sex]').forEach(x=>x.checked=false);
+ const sx=document.getElementById('sex-'+state.sex); if(sx) sx.checked=true;
+ const dt=document.getElementById('diet-'+state.diet); if(dt) dt.checked=true;
+ setMode(state.mode,false);
+ renderLog();
+}
+function renderLog(){
+ $('#logrows').innerHTML=state.log.map((r,i)=>`<div class="logrow">
+   <select id="log-act-${i}" data-i="${i}" data-f="act" aria-label="Activity">${actOpts}</select>
+   <input type="number" id="log-hrs-${i}" data-i="${i}" data-f="hrs" min="0" max="24" step="0.5" value="${r[1]}" aria-label="Hours">
+   <button type="button" class="x" data-del="${i}" aria-label="Remove activity">×</button></div>`).join('');
+ state.log.forEach((r,i)=>{document.getElementById('log-act-'+i).value=r[0]});
+}
+function setMode(m,recalc=true){
+ state.mode=m;
+ $('#tab-log').setAttribute('aria-selected',m==='log');
+ $('#tab-level').setAttribute('aria-selected',m==='level');
+ $('#mode-log').hidden=m!=='log'; $('#mode-level').hidden=m!=='level';
+ if(recalc) update();
+}
+
+function readForm(){
+ ['name','goal','level'].forEach(k=>state[k]=$('#'+k).value);
+ ['age','height','weight','bf'].forEach(k=>state[k]=$('#'+k).value);
+ const sx=document.querySelector('input[name=sex]:checked'); state.sex=sx?sx.value:'';
+ const dt=document.querySelector('input[name=diet]:checked'); state.diet=dt?dt.value:'veg';
+}
+
+function whoBmr(w,a,male){
+ if(male){if(a<30)return 15.3*w+679;if(a<60)return 11.6*w+879;return 13.5*w+487}
+ if(a<30)return 14.7*w+496;if(a<60)return 8.7*w+829;return 10.5*w+596;
+}
+
+function compute(s){
+ const errs=[];
+ const a=+s.age,h=+s.height,w=+s.weight,bf=s.bf===''||s.bf==null?null:+s.bf;
+ if(!s.age||a<18||a>90)errs.push('Age must be 18–90 years. Children and teens need different standards.');
+ if(!s.height||h<120||h>230)errs.push('Height must be 120–230 cm.');
+ if(!s.weight||w<30||w>250)errs.push('Weight must be 30–250 kg.');
+ if(bf!==null&&(bf<3||bf>60))errs.push('Body fat must be 3–60%, or leave it blank.');
+ if(!s.sex)errs.push('Choose male or female for the formulas.');
+ if(errs.length)return{errs};
+ const male=s.sex==='m';
+ const F=[
+  {k:'mifflin',name:'Mifflin-St Jeor',cite:'Mifflin et al., 1990',bmr:10*w+6.25*h-5*a+(male?5:-161)},
+  {k:'harris',name:'Harris-Benedict (revised)',cite:'Roza & Shizgal, 1984',bmr:male?88.362+13.397*w+4.799*h-5.677*a:447.593+9.247*w+3.098*h-4.330*a},
+  {k:'who',name:'WHO/FAO/UNU',cite:'Weight-based, 1985',bmr:whoBmr(w,a,male)}
+ ];
+ if(bf!==null)F.push({k:'katch',name:'Katch-McArdle',cite:'Uses lean body mass',bmr:370+21.6*w*(1-bf/100)});
+ let pal,hours=null;
+ if(s.mode==='level'){pal=LEVELS[s.level].pal}
+ else{
+  hours=s.log.reduce((t,r)=>t+(+r[1]||0),0);
+  const tot=s.log.reduce((t,r)=>t+(+r[1]||0)*(PARMAP[r[0]]?.par||1),0);
+  pal=hours>0?tot/hours:1.4;
+ }
+ F.forEach(f=>f.tdee=f.bmr*pal);
+ const primary=F.find(f=>f.k===(bf!==null?'katch':'mifflin'));
+ const goal=GOALS[s.goal]||GOALS.maintain;
+ let target=primary.tdee+goal.adj;
+ const floor=Math.max(primary.bmr,male?1500:1200);
+ const floored=target<floor; if(floored)target=floor;
+ target=Math.round(target/10)*10;
+ const bmi=w/((h/100)**2);
+ const adjW=bmi>=30, refW=adjW?25*(h/100)**2:w;
+ let ppk=pal<1.6?1.0:pal<1.9?1.2:1.6;
+ if(s.goal==='lose'||s.goal==='mild')ppk=Math.max(ppk,1.2);
+ if(s.goal==='gain')ppk=Math.max(ppk,1.6);
+ const protein=Math.round(ppk*refW), fat=Math.round(target*.25/9);
+ const carb=Math.max(0,Math.round((target-protein*4-fat*9)/4));
+ return{a,h,w,bf,male,F,primary,pal,hours,goal,target,floored,floor,bmi,adjW,refW,ppk,protein,fat,carb,
+  fibre:Math.round(target/1000*15),sat:Math.round(target*.10/9),sugar:Math.round(target*.05/4),water:Math.round(w*35/100)/10};
+}
+
+function bmiClass(b){ /* Asian cut-offs (WHO 2004 / Indian consensus) */
+ if(b<18.5)return['Underweight',true]; if(b<23)return['Normal',false]; if(b<25)return['Overweight',true]; return['Obese',true];
+}
+
+function donut(r){
+ const tot=r.protein*4+r.fat*9+r.carb*4, C=2*Math.PI*54;
+ let off=0;
+ const seg=(kcal,col)=>{const len=kcal/tot*C;const el=`<circle cx="75" cy="75" r="54" fill="none" stroke="${col}" stroke-width="22" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 75 75)"/>`;off+=len;return el};
+ return `<svg class="donut" viewBox="0 0 150 150" role="img" aria-label="Macronutrient split">
+  ${seg(r.protein*4,'var(--protein)')}${seg(r.carb*4,'var(--carb)')}${seg(r.fat*9,'var(--fat)')}
+  <text x="75" y="72" text-anchor="middle" fill="var(--ink)" style="font:600 20px var(--f-mono)">${fmt(r.target)}</text>
+  <text x="75" y="90" text-anchor="middle" fill="var(--muted)" style="font:12px var(--f-body)">kcal / day</text></svg>`;
+}
+
+function src(m,diet){
+ const s=m.s;
+ if(diet==='vegan'&&s.vegan)return s.vegan;
+ if(diet==='jain'&&s.jain)return s.jain;
+ const add=v=>v.startsWith('+ ')?s.base+'; '+v.slice(2):v;
+ if(diet==='nonveg'&&s.nonveg)return add(s.nonveg);
+ if(diet==='egg'&&s.egg)return add(s.egg);
+ return s.base;
+}
+
+function summaryText(r){
+ const s=state;
+ return [`Poshan nutrition plan${s.name?' for '+s.name:''}`,
+ `${r.a} y, ${r.male?'male':'female'}, ${r.h} cm, ${r.w} kg, BMI ${r.bmi.toFixed(1)}`,
+ `Diet: ${DIETS[s.diet]} · Goal: ${r.goal.label}`,
+ `BMR (${r.primary.name}): ${fmt(r.primary.bmr)} kcal · PAL ${r.pal.toFixed(2)} · Maintenance ${fmt(r.primary.tdee)} kcal`,
+ `Daily target: ${fmt(r.target)} kcal`,
+ `Protein ${r.protein} g · Carbohydrate ${r.carb} g · Fat ${r.fat} g · Fibre ${r.fibre} g`,
+ `Limits: saturated fat < ${r.sat} g, added sugar < ${r.sugar} g, salt < 5 g`,
+ `Micronutrients (ICMR-NIN 2020 RDA): `+MICROS.map(m=>`${m.n} ${r.male?m.m:m.f} ${m.u}`).join(', '),
+ ``,`Prepared with Poshan · Dr Rajesh Bandgar, MBBS, MD · Lifestyle coach`
+ ].join('\n');
+}
+
+function renderResults(){
+ const r=compute(state), el=$('#results');
+ $('#err').hidden=!r.errs; if(r.errs)$('#err').innerHTML=r.errs.map(esc).join('<br>');
+ if(state.mode==='log'){
+  const hrs=state.log.reduce((t,x)=>t+(+x[1]||0),0), d=24-hrs, hx=$('#hrs');
+  hx.className='hrs num '+(Math.abs(d)<.01?'ok':'bad');
+  hx.textContent=Math.abs(d)<.01?'24 h logged ✓':d>0?`${hrs} h logged · ${d} h left`:`${hrs} h logged · ${-d} h over`;
+ }
+ if(r.errs){el.innerHTML=`<div class="card empty">Fix the highlighted details to see the plan.</div>`;return}
+ const [bc,bw]=bmiClass(r.bmi), max=Math.max(...r.F.map(f=>f.tdee));
+ const pk=r.protein*4,fk=r.fat*9,ck=r.carb*4,tot=pk+fk+ck;
+ const pct=k=>Math.round(k/tot*100);
+ el.innerHTML=`
+ ${isSample?`<div class="banner"><span>Showing a sample profile. Edit any field to calculate your own plan.</span><button type="button" class="btn" id="clear">Start blank</button></div>`:''}
+ <section class="card hero">
+  <div class="who">Daily energy target${state.name?' for <b>'+esc(state.name)+'</b>':''} · ${DIETS[state.diet]} · ${esc(r.goal.label)}</div>
+  <div class="big"><span class="kcal">${fmt(r.target)}</span><span class="unit">kcal / day</span>
+   <span class="chip ${bw?'warn':''}">BMI ${r.bmi.toFixed(1)} · ${bc}</span></div>
+  <div class="stats">
+   <div class="stat"><div class="k">BMR</div><div class="v">${fmt(r.primary.bmr)}</div></div>
+   <div class="stat"><div class="k">PAL</div><div class="v">${r.pal.toFixed(2)}</div></div>
+   <div class="stat"><div class="k">Maintenance</div><div class="v">${fmt(r.primary.tdee)}</div></div>
+   <div class="stat"><div class="k">Goal change</div><div class="v">${r.goal.adj>0?'+':''}${r.goal.adj}</div></div>
+   <div class="stat"><div class="k">Water</div><div class="v">${r.water} L</div></div>
+  </div>
+  ${r.floored?`<p class="note warn">The deficit was reduced so intake stays at or above ${fmt(r.floor)} kcal, the safe floor for this profile.</p>`:''}
+  ${state.mode==='log'&&r.hours!==null&&Math.abs(r.hours-24)>.01?`<p class="note warn">Your activity log covers ${r.hours} h, not 24 h. PAL is averaged over the logged hours.</p>`:''}
+  <p class="note">BMI category uses Asian cut-offs (normal 18.5–22.9). Primary estimate: ${r.primary.name}${r.bf!==null?', since body fat was entered':', the most accurate equation for most adults'}.</p>
+ </section>
+
+ <section class="card">
+  <h2>Formula comparison</h2>
+  <p class="sub">Basal metabolic rate from each equation, multiplied by your PAL of ${r.pal.toFixed(2)}.</p>
+  <div class="scroll"><table class="ftable">
+   <thead><tr><th>Equation</th><th class="num">BMR</th><th class="num">Maintenance</th><th style="width:30%"></th></tr></thead>
+   <tbody>${r.F.map(f=>`<tr class="${f===r.primary?'primary':''}"><td>${f.name}${f===r.primary?'<span class="tag">Used</span>':''}<span class="cite">${f.cite}</span></td>
+    <td class="num">${fmt(f.bmr)}</td><td class="num">${fmt(f.tdee)}</td>
+    <td><div class="bar"><i style="width:${(f.tdee/max*100).toFixed(1)}%"></i></div></td></tr>`).join('')}</tbody>
+  </table></div>
+ </section>
+
+ <section class="card">
+  <h2>Macronutrients</h2>
+  <p class="sub">Protein at ${r.ppk.toFixed(1)} g/kg ${r.adjW?`of adjusted weight (${r.refW.toFixed(1)} kg, BMI 25)`:'body weight'}, fat at 25% of energy, carbohydrate makes up the rest.</p>
+  <div class="macro">
+   ${donut(r)}
+   <div class="mcells">
+    <div class="mcell"><span class="k"><i style="background:var(--protein)"></i>Protein</span><span class="g">${r.protein} g</span><span class="d">${fmt(pk)} kcal · ${pct(pk)}%</span></div>
+    <div class="mcell"><span class="k"><i style="background:var(--carb)"></i>Carbohydrate</span><span class="g">${r.carb} g</span><span class="d">${fmt(ck)} kcal · ${pct(ck)}%</span></div>
+    <div class="mcell"><span class="k"><i style="background:var(--fat)"></i>Fat</span><span class="g">${r.fat} g</span><span class="d">${fmt(fk)} kcal · ${pct(fk)}%</span></div>
+    <div class="mcell"><span class="k"><i style="background:var(--muted)"></i>Dietary fibre</span><span class="g">${r.fibre} g</span><span class="d">15 g per 1000 kcal</span></div>
+   </div>
+  </div>
+  <div class="limits">
+   <div class="lim">Saturated fat <b>&lt; ${r.sat} g</b></div>
+   <div class="lim">Added sugar <b>&lt; ${r.sugar} g</b></div>
+   <div class="lim">Salt <b>&lt; 5 g</b> (sodium &lt; 2000 mg)</div>
+   <div class="lim">Trans fat <b>&lt; 1%</b> of energy</div>
+  </div>
+ </section>
+
+ ${isPro()?`<section class="card">
+  <h2>Meal distribution</h2>
+  <p class="sub">A typical Indian day split into five eating occasions.</p>
+  <div class="mealbar">${MEALS.map(([,p])=>`<i style="flex:${p}"></i>`).join('')}</div>
+  <div class="meals">${MEALS.map(([n,p])=>`<div class="meal"><div class="k">${n} · ${Math.round(p*100)}%</div><div class="v">${fmt(r.target*p)} kcal</div><div class="d">P ${Math.round(r.protein*p)} · C ${Math.round(r.carb*p)} · F ${Math.round(r.fat*p)} g</div></div>`).join('')}</div>
+ </section>`:locked('meals','Meal distribution','Calories, protein, carbs and fat for each meal of the day.')}
+
+ ${isPro()?`<section class="card">
+  <h2>Micronutrients</h2>
+  <p class="sub">Daily requirement for an adult ${r.male?'man':'woman'} (ICMR-NIN 2020 RDA), with ${DIETS[state.diet].toLowerCase()} sources.</p>
+  <div class="scroll"><table class="ftable micro">
+   <thead><tr><th>Nutrient</th><th class="num">Per day</th><th>Good sources</th></tr></thead>
+   <tbody>${MICROS.map(m=>`<tr><td>${m.n}</td><td class="num">${r.male?m.m:m.f} ${m.u}</td><td>${src(m,state.diet)}</td></tr>`).join('')}</tbody>
+  </table></div>
+ </section>`:locked('micro','Micronutrients','Daily vitamin and mineral targets (ICMR-NIN 2020) with Indian food sources for your diet.')}
+
+ ${isPro()?`<section class="card">
+  <h2>Share this plan</h2>
+  <p class="sub">Copy a text summary to paste into WhatsApp, email or notes.</p>
+  <div class="actions"><button type="button" class="btn primary" id="copy">Copy summary</button><span class="copied" id="copied" hidden>Copied</span></div>
+  <textarea class="fallback" id="fb" readonly hidden aria-label="Plan summary"></textarea>
+ </section>`:locked('share','Share this plan','A ready-to-send summary for WhatsApp, email or notes.')}
+
+ <section class="card doc">
+  <div class="docmark" aria-hidden="true">RB</div>
+  <div class="docbody">
+   <h2>Dr Rajesh Bandgar</h2>
+   <p class="cred">MBBS, MD · Lifestyle coach</p>
+   <p class="sub" style="margin:6px 0 10px">8+ years of experience in exercise and biomechanics.</p>
+   <div class="lbl" style="margin-bottom:6px">Certificate courses</div>
+   <ul class="certs">
+    <li>Nutrition</li><li>Advanced Lifestyle Medicine</li><li>Obesity</li><li>Hypertension</li>
+    <li>Evidence-Based Diabetes Mellitus</li><li>Public Health Approaches for Non-Communicable Diseases</li>
+   </ul>
+  </div>
+ </section>
+
+ ${consultCard()}
+
+ <section class="card method">
+  <h2 style="color:var(--ink);font-size:16px">Method and limits</h2>
+  <ul>
+   <li>BMR equations: Mifflin-St Jeor (1990), Harris-Benedict revised by Roza &amp; Shizgal (1984), WHO/FAO/UNU (1985), Katch-McArdle.</li>
+   <li>Activity: factorial method with physical activity ratios after FAO/WHO/UNU (2004), or a fixed PAL.</li>
+   <li>Micronutrients and fibre: ICMR-NIN Nutrient Requirements for Indians (2020). Limits: WHO and ICMR-NIN guidance.</li>
+  </ul>
+  <p>For healthy adults aged 18 and over. Not for pregnancy, lactation, or conditions such as diabetes or kidney disease, which need individual advice from a doctor or dietitian. Estimates vary by about ±10% between individuals.</p>
+ </section>`;
+ const c=$('#clear'); if(c)c.onclick=()=>{
+  state={...SAMPLE,name:'',age:'',sex:'',height:'',weight:'',bf:'',log:[['sleep',8],['sit',8]]};isSample=false;fillForm();update();
+ };
+ const cp=$('#copy'); if(cp) cp.onclick=()=>{
+  const t=summaryText(r), ok=()=>{$('#copied').hidden=false;setTimeout(()=>$('#copied').hidden=true,2000)};
+  const fb=()=>{const f=$('#fb');f.value=t;f.hidden=false;f.focus();f.select()};
+  try{navigator.clipboard.writeText(t).then(ok,fb)}catch(e){fb()}
+ };
+}
+
+function update(){
+ readForm();
+ try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}
+ renderResults();
+}
+
+$('#form').addEventListener('input',e=>{
+ const t=e.target;
+ if(t.dataset.i!==undefined){const i=+t.dataset.i;state.log[i][t.dataset.f==='act'?0:1]=t.dataset.f==='act'?t.value:t.value}
+ if(isSample&&t.id!=='tab-log'){isSample=false}
+ update();
+});
+$('#form').addEventListener('change',e=>{if(e.target.dataset.f==='act'){state.log[+e.target.dataset.i][0]=e.target.value;update()}});
+$('#form').addEventListener('submit',e=>e.preventDefault());
+$('#logrows').addEventListener('click',e=>{
+ const d=e.target.closest('[data-del]'); if(!d)return;
+ state.log.splice(+d.dataset.del,1); renderLog(); update();
+});
+$('#addrow').onclick=()=>{
+ const used=state.log.reduce((t,r)=>t+(+r[1]||0),0);
+ state.log.push(['walk',Math.max(0,Math.min(1,24-used))||0.5]); renderLog(); update();
+};
+$('#tab-log').onclick=()=>setMode('log');
+$('#tab-level').onclick=()=>setMode('level');
+
+/* ───────── Account, subscription and paywall ───────── */
+const CFG=Object.assign({demo:true,firebase:null,supportEmail:'',consultFee:499,
+ doctor:{name:'Dr Rajesh Bandgar',phone:'+91 81696 63781',whatsapp:'918169663781',email:'rajkban31@gmail.com',instagram:'idrrajeshbandgar'},
+ plans:[{id:'monthly',label:'Monthly',price:99,per:'month'},{id:'yearly',label:'Yearly',price:799,per:'year',note:'Save 33%'}]},window.POSHAN_CONFIG||{});
+const acct={user:null,plan:'free',proUntil:0,status:'',ready:false};
+let fb=null, pendingPlan=null, chosenPlan=(CFG.plans.find(p=>p.note)||CFG.plans[0]).id, emailMode='signin';
+function isPro(){return acct.plan==='pro'&&acct.proUntil>Date.now()}
+const planById=id=>CFG.plans.find(p=>p.id===id)||CFG.plans[0];
+const rupee=n=>'₹'+Number(n).toLocaleString('en-IN');
+
+const FEATURES={
+ micro:{title:'Micronutrients',line:'Micronutrient targets (ICMR-NIN 2020) with Indian food sources for your diet'},
+ meals:{title:'Meal distribution',line:'Meal-by-meal calorie, protein, carb and fat split'},
+ share:{title:'Plan sharing',line:'Shareable plan summary for WhatsApp or email'}
+};
+let featureFocus='';
+const MASK='<span class="mask" aria-label="hidden">●●●</span>';
+function lockPreview(key){
+ if(key==='micro')return `<div class="scroll"><table class="ftable micro"><thead><tr><th>Nutrient</th><th class="num">Per day</th><th>Good sources</th></tr></thead><tbody>
+  ${MICROS.slice(0,5).map(m=>`<tr><td>${m.n}</td><td class="num">${MASK} ${m.u}</td><td><span class="maskline"></span></td></tr>`).join('')}
+  <tr><td colspan="3" class="fine">+ ${MICROS.length-5} more: ${MICROS.slice(5).map(m=>m.n).join(', ')}</td></tr></tbody></table></div>`;
+ if(key==='meals')return `<div class="meals">${MEALS.map(([n,p])=>`<div class="meal"><div class="k">${n} · ${Math.round(p*100)}%</div><div class="v">${MASK} kcal</div><div class="d">P ${MASK} · C ${MASK} · F ${MASK}</div></div>`).join('')}</div>`;
+ return `<div class="sharepv"><b>Poshan nutrition plan${state.name?' for '+esc(state.name):''}</b>
+  <span>Daily target: ${MASK} kcal</span><span>Protein ${MASK} g · Carbohydrate ${MASK} g · Fat ${MASK} g</span>
+  <span>Iron ${MASK} mg, Calcium ${MASK} mg, Vitamin B12 ${MASK} µg …</span><span class="fine">Prepared with Poshan · Dr Rajesh Bandgar</span></div>`;
+}
+function locked(key,title,sub){
+ return `<section class="card lockcard"><h2>${title} <span class="probadge">Pro</span></h2><p class="sub">${sub}</p>
+  <div class="lockpv">${lockPreview(key)}</div>
+  <div class="lockrow"><button type="button" class="btn primary" data-open="plans" data-feature="${key}">Unlock ${FEATURES[key].title.toLowerCase()}</button>
+  <p class="fine">Pro from ${rupee(CFG.plans[0].price)}/${CFG.plans[0].per}. Cancel anytime.</p></div></section>`;
+}
+
+/* ───────── One-to-one consultation ───────── */
+const CONCERNS=['Weight loss','Weight gain or muscle building','Diabetes','High blood pressure','Cholesterol or heart health','PCOS or thyroid','Sports and exercise nutrition','General healthy eating','Other'];
+let consult={name:'',age:'',sex:'',phone:'',email:'',concern:'',details:'',reply:'whatsapp',attach:true}, consultDone=null;
+function consultCard(){
+ const d=CFG.doctor;
+ return `<section class="card consult" id="consult">
+  <h2>One-to-one consultation</h2>
+  <p class="sub">A personal diet and lifestyle plan from ${esc(d.name)}. Share your details, pay online, and get a reply within 1–2 days on WhatsApp or email.</p>
+  <div class="cfee"><span class="cprice">${rupee(CFG.consultFee)}</span><span class="fine">per consultation</span></div>
+  <button type="button" class="btn primary" data-open="consult">Book a consultation</button>
+  <div class="contacts">
+   <div class="lbl">Or contact directly</div>
+   <div class="crow"><span class="ck">Phone / WhatsApp</span><span class="cv num">${esc(d.phone)}</span>
+    <span class="cacts"><button type="button" class="btn sm" data-copy="${esc(d.phone)}">Copy</button><a class="btn sm" href="https://wa.me/${esc(d.whatsapp)}" target="_blank" rel="noopener">WhatsApp</a></span></div>
+   <div class="crow"><span class="ck">Email</span><span class="cv">${esc(d.email)}</span>
+    <span class="cacts"><button type="button" class="btn sm" data-copy="${esc(d.email)}">Copy</button></span></div>
+   <div class="crow"><span class="ck">Instagram</span><span class="cv">@${esc(d.instagram)}</span>
+    <span class="cacts"><a class="btn sm" href="https://instagram.com/${esc(d.instagram)}" target="_blank" rel="noopener">Open</a></span></div>
+  </div></section>`;
+}
+function readConsult(){
+ const v=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
+ consult.name=v('c-name');consult.age=v('c-age');consult.sex=v('c-sex');consult.phone=v('c-phone');consult.email=v('c-email');
+ consult.concern=v('c-concern');consult.details=v('c-details');
+ const r=document.querySelector('input[name=c-reply]:checked');consult.reply=r?r.value:'whatsapp';
+ const a=document.getElementById('c-attach');consult.attach=a?a.checked:true;
+}
+function consultErrors(){
+ const digits=consult.phone.replace(/\D/g,'');
+ if(!consult.name)return'Enter your full name.';
+ if(digits.length<10||digits.length>13)return'Enter a valid WhatsApp number, e.g. 98xxxxxxxx.';
+ if(consult.reply==='email'&&!/^\S+@\S+\.\S+$/.test(consult.email))return'Enter your email, since you chose a reply by email.';
+ if(consult.email&&!/^\S+@\S+\.\S+$/.test(consult.email))return'Check your email address.';
+ if(!consult.concern)return'Choose your main concern.';
+ if(consult.details.length<15)return'Describe your concern in a little more detail (at least 15 characters).';
+ return'';
+}
+function planText(){const r=compute(state);return r.errs?'':summaryText(r).split('\n').slice(1,7).join('\n')}
+function consultPayload(){return{...consult,plan:consult.attach?planText():''}}
+async function payConsult(){
+ if(CFG.demo){consultDone={id:'DEMO-'+Math.random().toString(36).slice(2,8).toUpperCase()};return openSheet('consultDone')}
+ const r=await fetch('/api/consult-order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(consultPayload())});
+ let d={};try{d=await r.json()}catch(e){}
+ if(!r.ok)throw new Error(d.error||'Could not start the payment. Try again.');
+ await loadScript('https://checkout.razorpay.com/v1/checkout.js');
+ const done=await new Promise((ok,no)=>{
+  const rz=new window.Razorpay({key:d.keyId,order_id:d.orderId,amount:d.amount,currency:'INR',name:CFG.doctor.name,description:'One-to-one consultation',
+   prefill:{name:consult.name,email:consult.email,contact:consult.phone},theme:{color:'#172031'},
+   handler:resp=>fetch('/api/consult-verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(resp)})
+     .then(x=>x.json().then(j=>x.ok?ok(j):no(new Error(j.error||'Payment received. Confirmation is delayed; you will still get a reply.')))),
+   modal:{ondismiss:()=>no(new Error('Payment window closed. You have not been charged.'))}});
+  rz.on('payment.failed',e=>no(new Error((e&&e.error&&e.error.description)||'Payment failed. Try another method.')));
+  rz.open();
+ });
+ consultDone={id:done.bookingId};openSheet('consultDone');
+}
+
+/* demo storage */
+const DKEY='poshan-demo-acct';
+function demoLoad(){try{Object.assign(acct,JSON.parse(localStorage.getItem(DKEY)||'{}'))}catch(e){}}
+function demoSave(){try{localStorage.setItem(DKEY,JSON.stringify({user:acct.user,plan:acct.plan,proUntil:acct.proUntil,status:acct.status}))}catch(e){}}
+
+async function initAccount(){
+ if(CFG.demo){demoLoad();acct.ready=true;refreshAcct();return}
+ try{
+  const base='https://www.gstatic.com/firebasejs/10.12.2/';
+  const [app,A,F]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-auth.js'),import(base+'firebase-firestore.js')]);
+  const a=app.initializeApp(CFG.firebase);
+  fb={auth:A.getAuth(a),db:F.getFirestore(a),A,F,unsub:null};
+  A.getRedirectResult(fb.auth).catch(()=>{});
+  A.onAuthStateChanged(fb.auth,u=>{
+   if(fb.unsub){fb.unsub();fb.unsub=null}
+   acct.user=u?{email:u.email||u.phoneNumber||'',name:u.displayName||''}:null;
+   acct.plan='free';acct.proUntil=0;acct.status='';
+   if(u){fb.unsub=F.onSnapshot(F.doc(fb.db,'users',u.uid),s=>{
+     const d=s.data()||{};acct.plan=d.plan||'free';acct.proUntil=d.proUntil&&d.proUntil.toMillis?d.proUntil.toMillis():0;acct.status=d.subscriptionStatus||'';refreshAcct();
+    },()=>{})}
+   acct.ready=true;refreshAcct();
+   if(u&&pendingPlan){const p=pendingPlan;pendingPlan=null;openSheet('plans');chosenPlan=p}
+  });
+ }catch(e){acct.ready=true;refreshAcct();toast('Could not reach the sign-in service. Check your connection.')}
+}
+
+function authMsg(e){
+ const c=(e&&e.code)||'';
+ return ({'auth/invalid-credential':'Email or password is wrong.','auth/wrong-password':'Email or password is wrong.','auth/user-not-found':'No account with this email. Create one instead.',
+  'auth/email-already-in-use':'An account with this email already exists. Sign in instead.','auth/weak-password':'Use a password of at least 6 characters.',
+  'auth/invalid-email':'Enter a valid email address.','auth/too-many-requests':'Too many attempts. Wait a few minutes and try again.',
+  'auth/popup-closed-by-user':'Google sign-in was closed before finishing.'})[c]||(e&&e.message&&!c?e.message:'Sign-in failed. Check your connection and try again.');
+}
+function afterSignIn(){
+ if(pendingPlan){chosenPlan=pendingPlan;pendingPlan=null;openSheet('plans')}else{closeSheet();toast('Signed in')}
+}
+async function signInGoogle(){
+ if(CFG.demo){acct.user={email:'demo.user@gmail.com',name:'Demo User'};demoSave();refreshAcct();return afterSignIn()}
+ const p=new fb.A.GoogleAuthProvider();
+ try{await fb.A.signInWithPopup(fb.auth,p);afterSignIn()}
+ catch(e){if(e.code==='auth/popup-blocked'||e.code==='auth/operation-not-supported-in-this-environment')return fb.A.signInWithRedirect(fb.auth,p);throw e}
+}
+async function signInEmail(email,pw){
+ if(CFG.demo){acct.user={email,name:email.split('@')[0]};demoSave();refreshAcct();return afterSignIn()}
+ if(emailMode==='create')await fb.A.createUserWithEmailAndPassword(fb.auth,email,pw);
+ else await fb.A.signInWithEmailAndPassword(fb.auth,email,pw);
+ afterSignIn();
+}
+async function signOutNow(){
+ if(CFG.demo){acct.user=null;acct.plan='free';acct.proUntil=0;acct.status='';demoSave();refreshAcct();return}
+ await fb.A.signOut(fb.auth);
+}
+function loadScript(src){return new Promise((ok,no)=>{if(document.querySelector(`script[src="${src}"]`))return ok();const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('Could not load the payment window. Check your connection.'));document.head.appendChild(s)})}
+async function api(path,body){
+ const tok=await fb.auth.currentUser.getIdToken();
+ const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+tok},body:JSON.stringify(body||{})});
+ let d={};try{d=await r.json()}catch(e){}
+ if(!r.ok)throw new Error(d.error||'Something went wrong. Try again.');
+ return d;
+}
+async function subscribe(planId){
+ if(!acct.user){pendingPlan=planId;return openSheet('signin')}
+ if(CFG.demo)return openSheet('demopay');
+ const plan=planById(planId);
+ const d=await api('/api/create-subscription',{plan:planId});
+ await loadScript('https://checkout.razorpay.com/v1/checkout.js');
+ await new Promise((ok,no)=>{
+  const rz=new window.Razorpay({key:d.keyId,subscription_id:d.subscriptionId,name:'Poshan',description:`Poshan Pro · ${plan.label}`,
+   prefill:{email:acct.user.email||'',name:acct.user.name||''},theme:{color:'#172031'},
+   handler:resp=>api('/api/verify-subscription',resp).then(ok,no),
+   modal:{ondismiss:()=>no(new Error('Payment window closed. You have not been charged.'))}});
+  rz.on('payment.failed',r=>no(new Error((r&&r.error&&r.error.description)||'Payment failed. Try another method.')));
+  rz.open();
+ });
+ closeSheet();toast('Welcome to Poshan Pro');
+}
+async function cancelRenewal(){
+ if(CFG.demo){acct.status='cancelled';demoSave();refreshAcct();return}
+ await api('/api/cancel-subscription');
+}
+
+/* header */
+function refreshAcct(){
+ const b=$('#acctbtn');
+ $('#demochip').hidden=!CFG.demo;
+ if(!acct.ready){b.className='acctbtn out';b.innerHTML='<span class="spin" aria-hidden="true"></span>';b.setAttribute('aria-label','Loading account')}
+ else if(!acct.user){b.className='acctbtn out';b.textContent='Sign in';b.removeAttribute('aria-label')}
+ else{
+  const n=(acct.user.name||acct.user.email||'?').trim(), ini=n.split(/[\s@._]+/).filter(Boolean).slice(0,2).map(x=>x[0].toUpperCase()).join('');
+  b.className='acctbtn';b.innerHTML=`<span class="av">${esc(ini)}</span>${isPro()?'<span class="probadge">Pro</span>':'<span class="freebadge">Free</span>'}`;
+  b.setAttribute('aria-label','Account');
+ }
+ renderResults();
+ if(!$('#overlay').hidden&&sheetView==='account')openSheet('account');
+}
+
+/* sheet (modal) */
+let sheetView='', lastFocus=null;
+function openSheet(view){
+ sheetView=view; const s=$('#sheet');
+ if($('#overlay').hidden)lastFocus=document.activeElement;
+ const close=`<button type="button" class="x" data-close aria-label="Close">×</button>`;
+ const demoNote=CFG.demo?'<p class="fine">Demo mode: no real account or payment is created.</p>':'';
+ if(view==='signin'){
+  const create=emailMode==='create';
+  s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">${create?'Create your account':'Sign in to Poshan'}</h2><p class="sub">${pendingPlan?'Sign in first, then choose your Pro plan.':'Keep your Pro access on every device.'}</p></div>${close}</div>
+  <button type="button" class="btn block" id="g-in"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.6 9.2c0-.6-.1-1.2-.2-1.7H9v3.3h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.7-3.9 2.7-6.5z"/><path fill="#34A853" d="M9 18c2.4 0 4.5-.8 6-2.2l-2.9-2.2c-.8.5-1.8.9-3.1.9-2.4 0-4.4-1.6-5.1-3.8H.9v2.3A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.9 10.7a5.4 5.4 0 0 1 0-3.4V5H.9a9 9 0 0 0 0 8z"/><path fill="#EA4335" d="M9 3.6c1.3 0 2.5.5 3.4 1.4l2.6-2.6A9 9 0 0 0 .9 5l3 2.3C4.6 5.1 6.6 3.6 9 3.6z"/></svg>Continue with Google</button>
+  <div class="or">or use email</div>
+  <form id="emailform" class="sec" style="gap:10px" novalidate>
+   <div class="field"><label class="lbl" for="em">Email</label><input type="text" id="em" inputmode="email" autocomplete="email"></div>
+   <div class="field"><label class="lbl" for="pw">Password</label><input type="password" id="pw" autocomplete="${create?'new-password':'current-password'}" style="width:100%;height:40px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:500 15px var(--f-body);padding:0 10px"></div>
+   <p class="formerr" id="autherr" hidden></p>
+   <button type="submit" class="btn primary block">${create?'Create account':'Sign in'}</button>
+  </form>
+  <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+   <button type="button" class="linkbtn" id="toggleMode">${create?'I already have an account':'Create a new account'}</button>
+   ${create?'':'<button type="button" class="linkbtn" id="forgot">Forgot password?</button>'}
+  </div>${demoNote}`;
+ } else if(view==='plans'){
+  const ff=FEATURES[featureFocus], order=[featureFocus,...Object.keys(FEATURES).filter(k=>k!==featureFocus)].filter(k=>FEATURES[k]);
+  s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">${ff?'Unlock '+ff.title.toLowerCase():'Poshan Pro'}</h2><p class="sub">${ff?'Part of Poshan Pro, along with everything below.':'Everything in your plan, in full detail.'}</p></div>${close}</div>
+  <ul class="feats">${order.map(k=>`<li${k===featureFocus?' class="hl"':''}>${FEATURES[k].line}</li>`).join('')}<li>New Pro features as they launch</li></ul>
+  <div class="plans" role="radiogroup" aria-label="Billing">${CFG.plans.map(p=>`<label class="plan"><input type="radio" name="plan" id="plan-${p.id}" value="${p.id}" ${p.id===chosenPlan?'checked':''}>
+   <span class="box">${p.note?`<span class="save">${esc(p.note)}</span>`:''}<span class="pl">${esc(p.label)}</span><span class="pp">${rupee(p.price)}</span><span class="pn">per ${p.per}${p.per==='year'?` · ${rupee(Math.round(p.price/12))}/month`:''}</span></span></label>`).join('')}</div>
+  <p class="formerr" id="payerr" hidden></p>
+  <button type="button" class="btn primary block" id="paybtn">Continue · ${rupee(planById(chosenPlan).price)}/${planById(chosenPlan).per}</button>
+  <p class="fine">Pay by UPI Autopay, card or net banking through Razorpay. Renews automatically; cancel anytime from your account. Prices include GST where applicable.</p>${demoNote}`;
+ } else if(view==='demopay'){
+  const p=planById(chosenPlan);
+  s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">Demo checkout</h2><p class="sub">${esc(p.label)} plan · ${rupee(p.price)}/${p.per}</p></div>${close}</div>
+  <p style="margin:0">In the live app, the Razorpay payment window opens here for UPI, card or net banking. No money is charged in demo mode.</p>
+  <button type="button" class="btn primary block" id="demook">Simulate a successful payment</button>
+  <button type="button" class="btn block" data-open="plans">Back to plans</button>`;
+ } else if(view==='account'){
+  const u=acct.user||{}, pro=isPro(), until=acct.proUntil?new Date(acct.proUntil).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):'';
+  const cancelled=/cancel/.test(acct.status);
+  s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">Your account</h2></div>${close}</div>
+  <dl class="kv"><dt>Name</dt><dd>${esc(u.name||'—')}</dd><dt>Email</dt><dd>${esc(u.email||'—')}</dd>
+   <dt>Plan</dt><dd>${pro?'<span class="probadge">Pro</span>':'<span class="freebadge">Free</span>'}</dd>
+   ${pro?`<dt>${cancelled?'Access until':'Renews on'}</dt><dd class="num">${until}</dd>`:''}</dl>
+  ${pro?'':'<button type="button" class="btn primary block" data-open="plans">Upgrade to Pro</button>'}
+  ${pro&&!cancelled?'<button type="button" class="btn block" id="cancelsub">Cancel renewal</button>':''}
+  ${pro&&cancelled?'<p class="fine">Renewal is cancelled. You keep Pro until the date above.</p>':''}
+  <p class="formerr" id="accerr" hidden></p>
+  <button type="button" class="btn block" id="signout">Sign out</button>
+  ${CFG.supportEmail?`<p class="fine">Help with billing: <span style="user-select:all">${esc(CFG.supportEmail)}</span></p>`:''}${demoNote}`;
+ } else if(view==='consult'){
+  if(!consult.name&&state.name)consult.name=state.name;
+  if(!consult.age&&state.age)consult.age=String(state.age);
+  if(!consult.sex&&state.sex)consult.sex=state.sex==='m'?'Male':'Female';
+  if(!consult.email&&acct.user&&acct.user.email)consult.email=acct.user.email;
+  const c=consult,sel=(v,o)=>o.map(x=>`<option${x===v?' selected':''}>${esc(x)}</option>`).join('');
+  s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">Book a consultation</h2><p class="sub">${esc(CFG.doctor.name)} · ${rupee(CFG.consultFee)} · reply within 1–2 days</p></div>${close}</div>
+  <form id="consultform" class="sec" style="gap:12px" novalidate>
+   <div class="field"><label class="lbl" for="c-name">Full name</label><input type="text" id="c-name" autocomplete="name" value="${esc(c.name)}"></div>
+   <div class="row">
+    <div class="field"><label class="lbl" for="c-age">Age</label><input type="number" id="c-age" min="1" max="100" inputmode="numeric" value="${esc(c.age)}"></div>
+    <div class="field"><label class="lbl" for="c-sex">Sex</label><select id="c-sex"><option value="">Select</option>${sel(c.sex,['Male','Female'])}</select></div>
+   </div>
+   <div class="field"><label class="lbl" for="c-phone">WhatsApp number</label><input type="tel" id="c-phone" inputmode="tel" autocomplete="tel" placeholder="98xxxxxxxx" value="${esc(c.phone)}"></div>
+   <div class="field"><label class="lbl" for="c-email">Email <em>optional</em></label><input type="text" id="c-email" inputmode="email" autocomplete="email" value="${esc(c.email)}"></div>
+   <div class="field"><label class="lbl" for="c-concern">Main concern</label><select id="c-concern"><option value="">Select</option>${sel(c.concern,CONCERNS)}</select></div>
+   <div class="field"><label class="lbl" for="c-details">Describe your concern</label><textarea id="c-details" rows="4" placeholder="Goals, current diet, medicines, recent reports, routine…">${esc(c.details)}</textarea></div>
+   <div class="field"><span class="lbl">Reply on</span><div class="seg">
+    <label><input type="radio" name="c-reply" id="c-reply-wa" value="whatsapp" ${c.reply!=='email'?'checked':''}><span>WhatsApp</span></label>
+    <label><input type="radio" name="c-reply" id="c-reply-em" value="email" ${c.reply==='email'?'checked':''}><span>Email</span></label></div></div>
+   <label class="check"><input type="checkbox" id="c-attach" ${c.attach?'checked':''}> Attach my Poshan calorie and macro plan</label>
+   <p class="formerr" id="cerr" hidden></p>
+   <button type="submit" class="btn primary block">Preview details</button>
+  </form>`;
+ } else if(view==='consultPreview'){
+  const c=consult, pt=c.attach?planText():'';
+  s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">Check your details</h2><p class="sub">This is what ${esc(CFG.doctor.name)} will receive.</p></div>${close}</div>
+  <dl class="kv"><dt>Name</dt><dd>${esc(c.name)}</dd>${c.age||c.sex?`<dt>Age, sex</dt><dd>${esc([c.age,c.sex].filter(Boolean).join(', '))}</dd>`:''}
+   <dt>WhatsApp</dt><dd class="num">${esc(c.phone)}</dd>${c.email?`<dt>Email</dt><dd>${esc(c.email)}</dd>`:''}
+   <dt>Concern</dt><dd>${esc(c.concern)}</dd><dt>Reply on</dt><dd>${c.reply==='email'?'Email':'WhatsApp'}</dd></dl>
+  <div class="pvbox">${esc(c.details)}</div>
+  ${pt?`<div><div class="lbl" style="margin-bottom:4px">Attached plan</div><div class="sharepv">${esc(pt).replace(/\n/g,'<br>')}</div></div>`:''}
+  <div class="paysum"><span>Consultation fee</span><b class="num">${rupee(CFG.consultFee)}</b></div>
+  <p class="formerr" id="cperr" hidden></p>
+  <button type="button" class="btn primary block" id="cpay">Pay ${rupee(CFG.consultFee)} and book</button>
+  <button type="button" class="btn block" data-open="consult">Edit details</button>
+  <p class="fine">Pay by UPI, card or net banking through Razorpay. ${esc(CFG.doctor.name)} replies within 1–2 days.</p>${demoNote}`;
+ } else if(view==='consultDone'){
+  s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">Consultation booked</h2><p class="sub">Booking ID <span class="num" style="user-select:all">${esc(consultDone?consultDone.id:'')}</span></p></div>${close}</div>
+  <ul class="feats"><li>Payment received</li><li>${esc(CFG.doctor.name)} has your details</li><li>Expect a reply on ${consult.reply==='email'?'email':'WhatsApp'} within 1–2 days</li></ul>
+  <p class="fine">Questions about your booking: ${esc(CFG.doctor.phone)} (WhatsApp) or <span style="user-select:all">${esc(CFG.doctor.email)}</span></p>
+  ${CFG.demo?'<p class="fine">Demo mode: no payment was taken and no message was sent.</p>':''}
+  <button type="button" class="btn primary block" data-close>Done</button>`;
+ }
+ $('#overlay').hidden=false;
+ const f=s.querySelector('input,button:not([data-close])'); if(f)f.focus();
+}
+function closeSheet(){$('#overlay').hidden=true;sheetView='';if(lastFocus&&lastFocus.focus)lastFocus.focus()}
+function showErr(id,msg){const e=$(id);if(e){e.textContent=msg;e.hidden=false}}
+function busy(btn,on,label){if(!btn)return;if(on){btn.dataset.l=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spin" aria-hidden="true"></span>'+(label||'')}else{btn.disabled=false;btn.innerHTML=btn.dataset.l||btn.innerHTML}}
+let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2800)}
+
+$('#acctbtn').onclick=()=>{if(!acct.ready)return;openSheet(acct.user?'account':'signin')};
+$('#overlay').addEventListener('click',e=>{if(e.target.id==='overlay'||e.target.closest('[data-close]'))closeSheet()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#overlay').hidden)closeSheet()});
+document.addEventListener('click',async e=>{
+ const o=e.target.closest('[data-open]'); if(o){e.preventDefault();if(o.dataset.feature)featureFocus=o.dataset.feature;else if(o.dataset.open==='plans'&&!o.closest('.sheet'))featureFocus='';openSheet(o.dataset.open);return}
+ const cpy=e.target.closest('[data-copy]');
+ if(cpy){const v=cpy.dataset.copy;try{navigator.clipboard.writeText(v).then(()=>toast('Copied '+v),()=>toast(v))}catch(err){toast(v)}return}
+ const t=e.target.closest('button'); if(!t)return;
+ try{
+  if(t.id==='g-in'){busy(t,true);await signInGoogle()}
+  else if(t.id==='toggleMode'){emailMode=emailMode==='create'?'signin':'create';openSheet('signin')}
+  else if(t.id==='forgot'){const em=$('#em').value.trim();if(!em)return showErr('#autherr','Enter your email above, then tap Forgot password.');if(!CFG.demo)await fb.A.sendPasswordResetEmail(fb.auth,em);showErr('#autherr','');$('#autherr').hidden=true;toast('Password reset email sent')}
+  else if(t.id==='paybtn'){busy(t,true,' Opening payment');await subscribe(chosenPlan)}
+  else if(t.id==='demook'){acct.plan='pro';acct.proUntil=Date.now()+(planById(chosenPlan).per==='year'?365:30)*864e5;acct.status='active';demoSave();closeSheet();refreshAcct();toast('Welcome to Poshan Pro')}
+  else if(t.id==='cancelsub'){if(t.dataset.confirm){busy(t,true);await cancelRenewal();toast('Renewal cancelled');openSheet('account')}else{t.dataset.confirm='1';t.textContent='Tap again to confirm cancellation'}}
+  else if(t.id==='signout'){busy(t,true);await signOutNow();closeSheet();toast('Signed out')}
+  else if(t.id==='cpay'){busy(t,true,' Opening payment');await payConsult()}
+ }catch(err){
+  busy(t,false);
+  const id=sheetView==='signin'?'#autherr':sheetView==='plans'?'#payerr':sheetView==='consultPreview'?'#cperr':'#accerr';
+  showErr(id,sheetView==='signin'?authMsg(err):(err.message||'Something went wrong. Try again.'));
+ }
+});
+document.addEventListener('change',e=>{if(e.target.name==='plan'){chosenPlan=e.target.value;const p=planById(chosenPlan),b=$('#paybtn');if(b)b.textContent=`Continue · ${rupee(p.price)}/${p.per}`}});
+document.addEventListener('input',e=>{if(sheetView==='consult'&&e.target.closest('#consultform'))readConsult()});
+document.addEventListener('submit',e=>{
+ if(e.target.id!=='consultform')return; e.preventDefault();
+ readConsult(); const m=consultErrors(); if(m)return showErr('#cerr',m);
+ openSheet('consultPreview');
+});
+document.addEventListener('submit',async e=>{
+ if(e.target.id!=='emailform')return; e.preventDefault();
+ const em=$('#em').value.trim(),pw=$('#pw').value,btn=e.target.querySelector('[type=submit]');
+ if(!/^\S+@\S+\.\S+$/.test(em))return showErr('#autherr','Enter a valid email address.');
+ if(pw.length<6)return showErr('#autherr','Use a password of at least 6 characters.');
+ busy(btn,true);
+ try{await signInEmail(em,pw)}catch(err){busy(btn,false);showErr('#autherr',authMsg(err))}
+});
+
+/* install as app */
+let deferredInstall=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;$('#install').hidden=false});
+$('#install').onclick=async()=>{if(!deferredInstall)return;deferredInstall.prompt();try{await deferredInstall.userChoice}catch(e){}deferredInstall=null;$('#install').hidden=true};
+try{if('serviceWorker' in navigator&&location.protocol==='https:'&&document.querySelector('link[rel=manifest]'))navigator.serviceWorker.register('/sw.js').catch(()=>{})}catch(e){}
+
+fillForm(); renderResults(); initAccount();
+})();
+</script>
+</body>
+</html>
