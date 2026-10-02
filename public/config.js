@@ -21,7 +21,8 @@ window.POSHAN_CONFIG = {
     phone: "+91 81696 63781",
     whatsapp: "918169663781",
     email: "rajkban31@gmail.com",
-    instagram: "idrrajeshbandgar"
+    instagram: "idrrajeshbandgar",
+    registration: "" // e.g. "MMC 2015/12345" — shown under the consultation when filled in
   },
   consultFee: 499,
 

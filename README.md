@@ -100,6 +100,10 @@ In `public/config.js` set `demo: false`, set your `supportEmail`, commit to GitH
 
 ## Step 7: Legal pages before you take money
 
+Already included: `/terms`, `/privacy`, `/refund` and `/contact` (files in `public/`), linked from the app footer and the booking form. **Before applying to Razorpay, open `public/contact.html`, `terms.html`, `privacy.html` and `refund.html` and replace `[ADD YOUR FULL POSTAL ADDRESS]` with the real address.** Review the refund rules and change them if you want different ones.
+
+The pages cover:
+
 Razorpay KYC and Google Play both require these on your website:
 
 - Privacy policy (you store email and health inputs; India's DPDP Act 2023 applies)

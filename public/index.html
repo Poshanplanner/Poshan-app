@@ -211,6 +211,13 @@ tr:nth-child(even) .maskline{width:65%}
 .ck{grid-area:k;font-size:12px;color:var(--muted)} .cv{grid-area:v;font-weight:600;overflow-wrap:anywhere;user-select:all}
 .cacts{grid-area:a;display:flex;gap:6px}
 .btn.sm{padding:6px 10px;font-size:12.5px;text-decoration:none;display:inline-flex;align-items:center}
+.feats.incl{gap:6px;margin-bottom:4px}.feats.incl li{font-size:14px}
+.sitefoot{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);display:grid;gap:6px}
+.sitefoot nav{display:flex;flex-wrap:wrap;gap:6px 16px}
+.sitefoot a,.check a,.fine a{color:var(--accent-ink)}
+.sitefoot p{margin:0}
+.check{align-items:flex-start!important}.check input{margin-top:2px;flex-shrink:0}
+.inclbox{background:var(--sunk);border-radius:10px;padding:12px 14px}
 .cfee{display:flex;align-items:baseline;gap:8px;margin-bottom:12px}
 .cprice{font:600 28px var(--f-mono);font-variant-numeric:tabular-nums}
 textarea{width:100%;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:15px/1.45 var(--f-body);padding:8px 10px;resize:vertical;min-width:0}
@@ -304,6 +311,10 @@ textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
     <main class="results" id="results" aria-live="polite"></main>
   </div>
+  <footer class="sitefoot">
+    <nav aria-label="Policies"><a href="terms.html">Terms</a><a href="privacy.html">Privacy</a><a href="refund.html">Refunds and cancellation</a><a href="contact.html">Contact</a></nav>
+    <p>© 2026 Dr Rajesh Bandgar · Poshan gives general estimates and is not a substitute for medical care.</p>
+  </footer>
 </div>
 <div class="overlay" id="overlay" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"></div></div>
 <div class="toast" id="toast" role="status" hidden></div>
@@ -633,7 +644,7 @@ $('#tab-level').onclick=()=>setMode('level');
 
 /* ───────── Account, subscription and paywall ───────── */
 const CFG=Object.assign({demo:true,firebase:null,supportEmail:'',consultFee:499,
- doctor:{name:'Dr Rajesh Bandgar',phone:'+91 81696 63781',whatsapp:'918169663781',email:'rajkban31@gmail.com',instagram:'idrrajeshbandgar'},
+ doctor:{name:'Dr Rajesh Bandgar',phone:'+91 81696 63781',whatsapp:'918169663781',email:'rajkban31@gmail.com',instagram:'idrrajeshbandgar',registration:''},
  plans:[{id:'monthly',label:'Monthly',price:99,per:'month'},{id:'yearly',label:'Yearly',price:799,per:'year',note:'Save 33%'}]},window.POSHAN_CONFIG||{});
 const acct={user:null,plan:'free',proUntil:0,status:'',ready:false};
 let fb=null, pendingPlan=null, chosenPlan=(CFG.plans.find(p=>p.note)||CFG.plans[0]).id, emailMode='signin';
@@ -666,6 +677,7 @@ function locked(key,title,sub){
 
 /* ───────── One-to-one consultation ───────── */
 const CONCERNS=['Weight loss','Weight gain or muscle building','Diabetes','High blood pressure','Cholesterol or heart health','PCOS or thyroid','Sports and exercise nutrition','General healthy eating','Other'];
+const INCLUDED=['20–30 minute video or phone call','Review of your reports and Poshan targets','Personalised Indian diet plan on WhatsApp within 24 hours','Home exercise plan and lifestyle targets','One follow-up check-in within 7 days'];
 const SLOTS=['Morning (9 am–12 pm)','Afternoon (12–4 pm)','Evening (4–8 pm)'];
 const modeLabel=m=>m==='phone'?'Phone call':'Online video call';
 let consult={name:'',age:'',sex:'',phone:'',email:'',concern:'',details:'',mode:'video',slot:'',attach:true}, consultDone=null;
@@ -675,6 +687,9 @@ function consultCard(){
   <h2>One-to-one consultation</h2>
   <p class="sub">A personal diet and lifestyle plan from ${esc(d.name)}, online by video call or over a phone call. Share your details, pay online, and you'll be contacted on WhatsApp within 1–2 days to fix a time.</p>
   <div class="cfee"><span class="cprice">${rupee(CFG.consultFee)}</span><span class="fine">per consultation</span></div>
+  <div class="lbl" style="margin-bottom:8px">What's included</div>
+  <ul class="feats incl">${INCLUDED.map(x=>`<li>${x}</li>`).join('')}</ul>
+  <p class="fine" style="margin:8px 0 14px">Medicines are not prescribed or changed; please continue with your treating doctor for that.${d.registration?` · Reg. No. ${esc(d.registration)}`:''}</p>
   <button type="button" class="btn primary" data-open="consult">Book a consultation</button>
   <div class="contacts">
    <div class="lbl">Or contact directly</div>
@@ -691,7 +706,7 @@ function readConsult(){
  consult.name=v('c-name');consult.age=v('c-age');consult.sex=v('c-sex');consult.phone=v('c-phone');consult.email=v('c-email');
  consult.concern=v('c-concern');consult.details=v('c-details');
  const r=document.querySelector('input[name=c-mode]:checked');consult.mode=r?r.value:'video';consult.slot=v('c-slot');
- const a=document.getElementById('c-attach');consult.attach=a?a.checked:true;
+ const a=document.getElementById('c-attach');consult.attach=a?a.checked:true;const g=document.getElementById('c-agree');consult.agree=g?g.checked:false;
 }
 function consultErrors(){
  const digits=consult.phone.replace(/\D/g,'');
@@ -700,6 +715,7 @@ function consultErrors(){
  if(consult.email&&!/^\S+@\S+\.\S+$/.test(consult.email))return'Check your email address.';
  if(!consult.concern)return'Choose your main concern.';
  if(consult.details.length<15)return'Describe your concern in a little more detail (at least 15 characters).';
+ if(!consult.agree)return'Tick the box to agree to the terms and privacy policy.';
  return'';
 }
 function planText(){const r=compute(state);return r.errs?'':summaryText(r).split('\n').slice(1,7).join('\n')}
@@ -848,7 +864,7 @@ function openSheet(view){
    <span class="box">${p.note?`<span class="save">${esc(p.note)}</span>`:''}<span class="pl">${esc(p.label)}</span><span class="pp">${rupee(p.price)}</span><span class="pn">per ${p.per}${p.per==='year'?` · ${rupee(Math.round(p.price/12))}/month`:''}</span></span></label>`).join('')}</div>
   <p class="formerr" id="payerr" hidden></p>
   <button type="button" class="btn primary block" id="paybtn">Continue · ${rupee(planById(chosenPlan).price)}/${planById(chosenPlan).per}</button>
-  <p class="fine">Pay by UPI Autopay, card or net banking through Razorpay. Renews automatically; cancel anytime from your account. Prices include GST where applicable.</p>${demoNote}`;
+  <p class="fine">Pay by UPI Autopay, card or net banking through Razorpay. Renews automatically; cancel anytime from your account. Prices include GST where applicable. See the <a href="terms.html" target="_blank" rel="noopener">terms</a> and <a href="refund.html" target="_blank" rel="noopener">refund policy</a>.</p>${demoNote}`;
  } else if(view==='demopay'){
   const p=planById(chosenPlan);
   s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">Demo checkout</h2><p class="sub">${esc(p.label)} plan · ${rupee(p.price)}/${p.per}</p></div>${close}</div>
@@ -875,6 +891,7 @@ function openSheet(view){
   if(!consult.email&&acct.user&&acct.user.email)consult.email=acct.user.email;
   const c=consult,sel=(v,o)=>o.map(x=>`<option${x===v?' selected':''}>${esc(x)}</option>`).join('');
   s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">Book a consultation</h2><p class="sub">${esc(CFG.doctor.name)} · ${rupee(CFG.consultFee)} · reply within 1–2 days</p></div>${close}</div>
+  <div class="inclbox"><div class="lbl" style="margin-bottom:6px">Included in ${rupee(CFG.consultFee)}</div><ul class="feats incl">${INCLUDED.map(x=>`<li>${x}</li>`).join('')}</ul></div>
   <form id="consultform" class="sec" style="gap:12px" novalidate>
    <div class="field"><label class="lbl" for="c-name">Full name</label><input type="text" id="c-name" autocomplete="name" value="${esc(c.name)}"></div>
    <div class="row">
@@ -890,6 +907,7 @@ function openSheet(view){
     <label><input type="radio" name="c-mode" id="c-mode-phone" value="phone" ${c.mode==='phone'?'checked':''}><span>Phone call</span></label></div></div>
    <div class="field"><label class="lbl" for="c-slot">Preferred time</label><select id="c-slot"><option value="">Any time</option>${sel(c.slot,SLOTS)}</select></div>
    <label class="check"><input type="checkbox" id="c-attach" ${c.attach?'checked':''}> Attach my Poshan calorie and macro plan</label>
+   <label class="check"><input type="checkbox" id="c-agree" ${c.agree?'checked':''}> <span>I agree to the <a href="terms.html" target="_blank" rel="noopener">terms</a>, <a href="privacy.html" target="_blank" rel="noopener">privacy policy</a> and <a href="refund.html" target="_blank" rel="noopener">refund policy</a>, and consent to my health details being used for this consultation.</span></label>
    <p class="formerr" id="cerr" hidden></p>
    <button type="submit" class="btn primary block">Preview details</button>
   </form>`;
@@ -902,13 +920,14 @@ function openSheet(view){
   <div class="pvbox">${esc(c.details)}</div>
   ${pt?`<div><div class="lbl" style="margin-bottom:4px">Attached plan</div><div class="sharepv">${esc(pt).replace(/\n/g,'<br>')}</div></div>`:''}
   <div class="paysum"><span>Consultation fee</span><b class="num">${rupee(CFG.consultFee)}</b></div>
+  <p class="fine">Includes the call, a personalised diet plan, a home exercise plan and one follow-up within 7 days.</p>
   <p class="formerr" id="cperr" hidden></p>
   <button type="button" class="btn primary block" id="cpay">Pay ${rupee(CFG.consultFee)} and book</button>
   <button type="button" class="btn block" data-open="consult">Edit details</button>
   <p class="fine">Pay by UPI, card or net banking through Razorpay. You'll be contacted on WhatsApp within 1–2 days to fix the time of your ${modeLabel(c.mode).toLowerCase()}.</p>${demoNote}`;
  } else if(view==='consultDone'){
   s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">Consultation booked</h2><p class="sub">Booking ID <span class="num" style="user-select:all">${esc(consultDone?consultDone.id:'')}</span></p></div>${close}</div>
-  <ul class="feats"><li>Payment received</li><li>${esc(CFG.doctor.name)} has your details</li><li>You'll be contacted on WhatsApp within 1–2 days to fix the time of your ${modeLabel(consult.mode).toLowerCase()}</li></ul>
+  <ul class="feats"><li>Payment received</li><li>${esc(CFG.doctor.name)} has your details</li><li>You'll be contacted on WhatsApp within 1–2 days to fix the time of your ${modeLabel(consult.mode).toLowerCase()}</li><li>Your diet and exercise plan arrives on WhatsApp within 24 hours of the call</li></ul>
   <p class="fine">Questions about your booking: ${esc(CFG.doctor.phone)} (WhatsApp) or <span style="user-select:all">${esc(CFG.doctor.email)}</span></p>
   ${CFG.demo?'<p class="fine">Demo mode: no payment was taken and no message was sent.</p>':''}
   <button type="button" class="btn primary block" data-close>Done</button>`;
