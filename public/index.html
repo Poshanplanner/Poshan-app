@@ -666,12 +666,14 @@ function locked(key,title,sub){
 
 /* ───────── One-to-one consultation ───────── */
 const CONCERNS=['Weight loss','Weight gain or muscle building','Diabetes','High blood pressure','Cholesterol or heart health','PCOS or thyroid','Sports and exercise nutrition','General healthy eating','Other'];
-let consult={name:'',age:'',sex:'',phone:'',email:'',concern:'',details:'',reply:'whatsapp',attach:true}, consultDone=null;
+const SLOTS=['Morning (9 am–12 pm)','Afternoon (12–4 pm)','Evening (4–8 pm)'];
+const modeLabel=m=>m==='phone'?'Phone call':'Online video call';
+let consult={name:'',age:'',sex:'',phone:'',email:'',concern:'',details:'',mode:'video',slot:'',attach:true}, consultDone=null;
 function consultCard(){
  const d=CFG.doctor;
  return `<section class="card consult" id="consult">
   <h2>One-to-one consultation</h2>
-  <p class="sub">A personal diet and lifestyle plan from ${esc(d.name)}. Share your details, pay online, and get a reply within 1–2 days on WhatsApp or email.</p>
+  <p class="sub">A personal diet and lifestyle plan from ${esc(d.name)}, online by video call or over a phone call. Share your details, pay online, and you'll be contacted on WhatsApp within 1–2 days to fix a time.</p>
   <div class="cfee"><span class="cprice">${rupee(CFG.consultFee)}</span><span class="fine">per consultation</span></div>
   <button type="button" class="btn primary" data-open="consult">Book a consultation</button>
   <div class="contacts">
@@ -688,14 +690,13 @@ function readConsult(){
  const v=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
  consult.name=v('c-name');consult.age=v('c-age');consult.sex=v('c-sex');consult.phone=v('c-phone');consult.email=v('c-email');
  consult.concern=v('c-concern');consult.details=v('c-details');
- const r=document.querySelector('input[name=c-reply]:checked');consult.reply=r?r.value:'whatsapp';
+ const r=document.querySelector('input[name=c-mode]:checked');consult.mode=r?r.value:'video';consult.slot=v('c-slot');
  const a=document.getElementById('c-attach');consult.attach=a?a.checked:true;
 }
 function consultErrors(){
  const digits=consult.phone.replace(/\D/g,'');
  if(!consult.name)return'Enter your full name.';
  if(digits.length<10||digits.length>13)return'Enter a valid WhatsApp number, e.g. 98xxxxxxxx.';
- if(consult.reply==='email'&&!/^\S+@\S+\.\S+$/.test(consult.email))return'Enter your email, since you chose a reply by email.';
  if(consult.email&&!/^\S+@\S+\.\S+$/.test(consult.email))return'Check your email address.';
  if(!consult.concern)return'Choose your main concern.';
  if(consult.details.length<15)return'Describe your concern in a little more detail (at least 15 characters).';
@@ -884,9 +885,10 @@ function openSheet(view){
    <div class="field"><label class="lbl" for="c-email">Email <em>optional</em></label><input type="text" id="c-email" inputmode="email" autocomplete="email" value="${esc(c.email)}"></div>
    <div class="field"><label class="lbl" for="c-concern">Main concern</label><select id="c-concern"><option value="">Select</option>${sel(c.concern,CONCERNS)}</select></div>
    <div class="field"><label class="lbl" for="c-details">Describe your concern</label><textarea id="c-details" rows="4" placeholder="Goals, current diet, medicines, recent reports, routine…">${esc(c.details)}</textarea></div>
-   <div class="field"><span class="lbl">Reply on</span><div class="seg">
-    <label><input type="radio" name="c-reply" id="c-reply-wa" value="whatsapp" ${c.reply!=='email'?'checked':''}><span>WhatsApp</span></label>
-    <label><input type="radio" name="c-reply" id="c-reply-em" value="email" ${c.reply==='email'?'checked':''}><span>Email</span></label></div></div>
+   <div class="field"><span class="lbl">Consultation by</span><div class="seg">
+    <label><input type="radio" name="c-mode" id="c-mode-video" value="video" ${c.mode!=='phone'?'checked':''}><span>Online video call</span></label>
+    <label><input type="radio" name="c-mode" id="c-mode-phone" value="phone" ${c.mode==='phone'?'checked':''}><span>Phone call</span></label></div></div>
+   <div class="field"><label class="lbl" for="c-slot">Preferred time</label><select id="c-slot"><option value="">Any time</option>${sel(c.slot,SLOTS)}</select></div>
    <label class="check"><input type="checkbox" id="c-attach" ${c.attach?'checked':''}> Attach my Poshan calorie and macro plan</label>
    <p class="formerr" id="cerr" hidden></p>
    <button type="submit" class="btn primary block">Preview details</button>
@@ -896,17 +898,17 @@ function openSheet(view){
   s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">Check your details</h2><p class="sub">This is what ${esc(CFG.doctor.name)} will receive.</p></div>${close}</div>
   <dl class="kv"><dt>Name</dt><dd>${esc(c.name)}</dd>${c.age||c.sex?`<dt>Age, sex</dt><dd>${esc([c.age,c.sex].filter(Boolean).join(', '))}</dd>`:''}
    <dt>WhatsApp</dt><dd class="num">${esc(c.phone)}</dd>${c.email?`<dt>Email</dt><dd>${esc(c.email)}</dd>`:''}
-   <dt>Concern</dt><dd>${esc(c.concern)}</dd><dt>Reply on</dt><dd>${c.reply==='email'?'Email':'WhatsApp'}</dd></dl>
+   <dt>Concern</dt><dd>${esc(c.concern)}</dd><dt>Consultation</dt><dd>${modeLabel(c.mode)}</dd><dt>Preferred time</dt><dd>${esc(c.slot||'Any time')}</dd></dl>
   <div class="pvbox">${esc(c.details)}</div>
   ${pt?`<div><div class="lbl" style="margin-bottom:4px">Attached plan</div><div class="sharepv">${esc(pt).replace(/\n/g,'<br>')}</div></div>`:''}
   <div class="paysum"><span>Consultation fee</span><b class="num">${rupee(CFG.consultFee)}</b></div>
   <p class="formerr" id="cperr" hidden></p>
   <button type="button" class="btn primary block" id="cpay">Pay ${rupee(CFG.consultFee)} and book</button>
   <button type="button" class="btn block" data-open="consult">Edit details</button>
-  <p class="fine">Pay by UPI, card or net banking through Razorpay. ${esc(CFG.doctor.name)} replies within 1–2 days.</p>${demoNote}`;
+  <p class="fine">Pay by UPI, card or net banking through Razorpay. You'll be contacted on WhatsApp within 1–2 days to fix the time of your ${modeLabel(c.mode).toLowerCase()}.</p>${demoNote}`;
  } else if(view==='consultDone'){
   s.innerHTML=`<div class="sheethead"><div><h2 id="sheet-title">Consultation booked</h2><p class="sub">Booking ID <span class="num" style="user-select:all">${esc(consultDone?consultDone.id:'')}</span></p></div>${close}</div>
-  <ul class="feats"><li>Payment received</li><li>${esc(CFG.doctor.name)} has your details</li><li>Expect a reply on ${consult.reply==='email'?'email':'WhatsApp'} within 1–2 days</li></ul>
+  <ul class="feats"><li>Payment received</li><li>${esc(CFG.doctor.name)} has your details</li><li>You'll be contacted on WhatsApp within 1–2 days to fix the time of your ${modeLabel(consult.mode).toLowerCase()}</li></ul>
   <p class="fine">Questions about your booking: ${esc(CFG.doctor.phone)} (WhatsApp) or <span style="user-select:all">${esc(CFG.doctor.email)}</span></p>
   ${CFG.demo?'<p class="fine">Demo mode: no payment was taken and no message was sent.</p>':''}
   <button type="button" class="btn primary block" data-close>Done</button>`;

@@ -83,7 +83,7 @@ function bookingText(b) {
     `Name: ${b.name}${b.age || b.sex ? ` (${[b.age, b.sex].filter(Boolean).join(', ')})` : ''}`,
     `WhatsApp: ${b.phone}`,
     b.email ? `Email: ${b.email}` : '',
-    `Reply on: ${b.reply === 'email' ? 'Email' : 'WhatsApp'}`,
+    `Consultation: ${b.mode === 'phone' ? 'Phone call' : 'Online video call'} · ${b.slot || 'Any time'}`,
     `Concern: ${b.concern}`,
     '',
     b.details,
@@ -115,7 +115,7 @@ export async function notifyDoctor(b) {
         headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           from, to: [b.email], reply_to: process.env.DOCTOR_EMAIL, subject: `Your consultation is booked · ${b.bookingId}`,
-          text: `Hello ${b.name},\n\nYour consultation with Dr Rajesh Bandgar is booked (ID ${b.bookingId}, ₹${b.fee} paid).\nYou will get a reply on ${b.reply === 'email' ? 'email' : 'WhatsApp'} within 1–2 days.\n\nQuestions: WhatsApp +91 81696 63781 or reply to this email.\n\nPoshan`
+          text: `Hello ${b.name},\n\nYour consultation with Dr Rajesh Bandgar is booked (ID ${b.bookingId}, ₹${b.fee} paid).\nYou will be contacted on WhatsApp within 1–2 days to fix the time of your ${b.mode === 'phone' ? 'phone call' : 'online video call'}.\n\nQuestions: WhatsApp +91 81696 63781 or reply to this email.\n\nPoshan`
         })
       }));
     }

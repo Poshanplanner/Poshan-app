@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     const d = {
       name: clean(b.name, 80), age: clean(b.age, 3), sex: clean(b.sex, 10),
       phone: clean(b.phone, 20), email: clean(b.email, 120), concern: clean(b.concern, 60),
-      details: clean(b.details, 3000), reply: b.reply === 'email' ? 'email' : 'whatsapp', plan: clean(b.plan, 1500)
+      details: clean(b.details, 3000), mode: b.mode === 'phone' ? 'phone' : 'video', slot: clean(b.slot, 40), plan: clean(b.plan, 1500)
     };
     const digits = d.phone.replace(/\D/g, '');
     if (!d.name || digits.length < 10 || digits.length > 13 || d.details.length < 15 || !d.concern) {

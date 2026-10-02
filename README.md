@@ -17,10 +17,10 @@ It ships in **demo mode**: sign-in and payment are simulated so you can try ever
 
 ## One-to-one consultations
 
-Patients fill in their details (name, age, sex, WhatsApp, email, concern, description, optionally their Poshan plan), check a preview, and pay the consultation fee (₹499 by default) through Razorpay. After payment:
+Consultations are online (video call) or by phone call. Patients fill in their details (name, age, sex, WhatsApp, email, concern, description, video or phone, preferred time, optionally their Poshan plan), check a preview, and pay the consultation fee (₹499 by default) through Razorpay. After payment:
 
 - You get the full booking on **WhatsApp** and **email**.
-- The patient sees a booking ID and is told to expect a reply within 1–2 days.
+- The patient sees a booking ID and is told you'll contact them on WhatsApp within 1–2 days to fix the call time.
 - Every booking is also saved in Firestore → `consultations`.
 
 Your direct contact details (phone/WhatsApp, email, Instagram) are shown in the app; change them in `config.js` → `doctor`.
