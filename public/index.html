@@ -513,7 +513,7 @@ function fitIdea(t,kcal,diet){
   const opts=(TOPUPS[t.m]||[]).filter(i=>!items.some(j=>j[0]===i[0])&&FOODMAP[i[0]]&&ideaOk({items:[i],j:1},diet));
   if(!opts.length)break;
   opts.sort((a,b)=>Math.abs(k+FOODMAP[a[0]].kcal-kcal)-Math.abs(k+FOODMAP[b[0]].kcal-kcal));
-  const i=opts[0];items.push(i);qs.push(i[1]);k+=FOODMAP[i[0]].kcal;p+=FOODMAP[i[0]].p;added++;
+  const i=opts[0];if(Math.abs(k+FOODMAP[i[0]].kcal-kcal)>=Math.abs(k-kcal))break;items.push(i);qs.push(i[1]);k+=FOODMAP[i[0]].kcal;p+=FOODMAP[i[0]].p;added++;
  }
  return{t:{...t,items},src:t,qs,kcal:k,p};
 }
@@ -543,7 +543,14 @@ function mealIdeas(r,diet){
   let pool=fits.filter(x=>Math.abs(x.kcal-kcal)/kcal<=0.2).slice(0,6);
   if(pool.length<3)pool=fits.slice(0,Math.max(3,pool.length));
   pool.sort((a,b)=>hash(day*31+mi*7+IDEAS.indexOf(a.src))-hash(day*31+mi*7+IDEAS.indexOf(b.src)));
-  const pick=pool.slice(0,3); pick.forEach(x=>used.add(x.src));
+  const pick=pool.slice(0,3);
+  // Egg and non-veg users should see at least one option with their foods, when one fits
+  const sigs=diet==='nonveg'?['n','e']:diet==='egg'?['e']:[];
+  const has=(x,s)=>x.src.items.some(i=>FOODMAP[i[0]].t===s);
+  if(sigs.length&&!pick.some(x=>sigs.some(s=>has(x,s)))){
+   for(const s of sigs){const alt=fits.find(x=>has(x,s)&&Math.abs(x.kcal-kcal)/kcal<=0.35);if(alt){pick.pop();pick.unshift(alt);break}}
+  }
+  pick.forEach(x=>used.add(x.src));
   return{name,kcal,prot,ideas:pick};
  });
 }
