@@ -1,6 +1,6 @@
 // Offline support: keeps the app shell cached so the calculator opens without internet.
-const CACHE = 'poshan-v2';
-const SHELL = ['/', '/index.html', '/config.js', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
+const CACHE = 'poshan-v3';
+const SHELL = ['/', '/index.html', '/config.js', '/foods.js', '/meals.js', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -19,8 +19,8 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return;
 
-  // Pages and settings: network first so updates arrive, cache when offline
-  if (req.mode === 'navigate' || url.pathname === '/config.js') {
+  // Pages and scripts: network first so updates arrive, cache when offline
+  if (req.mode === 'navigate' || url.pathname.endsWith('.js')) {
     e.respondWith(
       fetch(req)
         .then(res => { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); return res; })

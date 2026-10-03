@@ -141,6 +141,14 @@ tr.primary .bar i{background:var(--accent)}
 .meal .k{font-size:12px;color:var(--muted);font-weight:600}
 .meal .v{font-family:var(--f-mono);font-size:18px}
 .meal .d{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.ideas{display:grid;gap:14px}
+.idmeal{border-top:1px solid var(--line);padding-top:12px}
+.idhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.idhead b{font-family:var(--f-display);font-size:16px}
+.idhead span{font-size:12px;color:var(--muted)}
+.idlist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.idlist li{display:grid;gap:2px;padding:9px 12px;border-radius:10px;background:var(--sunk);font-size:14px}
+.idmeta{font-size:12px;color:var(--muted)}
 .mealbar{display:flex;height:8px;border-radius:4px;overflow:hidden;gap:2px;margin-bottom:12px}
 .mealbar i{display:block;background:var(--accent);opacity:.35}
 .mealbar i:nth-child(odd){opacity:.75}
@@ -334,6 +342,8 @@ textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script src="/config.js"></script>
+<script src="/foods.js"></script>
+<script src="/meals.js"></script>
 <script>
 (function(){
 const PAR=[
@@ -478,6 +488,69 @@ function bmiClass(b){ /* Asian cut-offs (WHO 2004 / Indian consensus) */
  if(b<18.5)return['Underweight',true]; if(b<23)return['Normal',false]; if(b<25)return['Overweight',true]; return['Obese',true];
 }
 
+/* Indian meal ideas: picks meal combinations from meals.js that fit each meal's calories and the diet */
+const FOODMAP=Object.fromEntries((window.POSHAN_FOODS||[]).map(r=>[r[0],{kcal:r[3],p:r[4],c:r[5],f:r[6],t:r[9]}]));
+const IDEAS=(window.POSHAN_MEALIDEAS||[]).filter(t=>t.items.every(i=>FOODMAP[i[0]]));
+const DAIRY=/^(curd|greek yogurt|buttermilk|sweet lassi|milk|paneer|low-fat paneer|palak paneer|matar paneer|raita|ghee|butter$|cheese|kadhi|whey|shrikhand|kheer|ice cream|tea with milk|coffee with milk|oats with milk|cornflakes|muesli)/i;
+let ideaShift=0;
+function ideaOk(t,diet){
+ const types=t.items.map(i=>FOODMAP[i[0]].t);
+ if(types.includes('n')&&diet!=='nonveg')return false;
+ if(types.includes('e')&&!(diet==='egg'||diet==='nonveg'))return false;
+ if(diet==='jain'&&!t.j)return false;
+ if(diet==='vegan'&&t.items.some(i=>DAIRY.test(i[0])))return false;
+ return true;
+}
+// Extra items added when a meal is still well short of its calories (large targets)
+const TOPUPS={bf:[['Milk, toned',1,'glass milk'],['Banana',1,'banana'],['Peanuts, roasted',1,'g roasted peanuts',null,30]],
+ sn:[['Banana',1,'banana'],['Milk, toned',1,'glass milk'],['Peanuts, roasted',1,'g roasted peanuts',null,30]],
+ lu:[['Curd / dahi',1,'katori curd'],['Rice, cooked (white)',1,'katori rice'],['Buttermilk / chaas',1,'glass buttermilk']],
+ di:[['Curd / dahi',1,'katori curd'],['Roti / chapati',1,'roti'],['Green salad',1,'bowl salad']]};
+function fitIdea(t,kcal,diet){
+ const x=fitBase(t,kcal);
+ let items=t.items.slice(), qs=x.qs.slice(), k=x.kcal, p=x.p, added=0;
+ while(k<kcal*0.9&&added<2){
+  const opts=(TOPUPS[t.m]||[]).filter(i=>!items.some(j=>j[0]===i[0])&&FOODMAP[i[0]]&&ideaOk({items:[i],j:1},diet));
+  if(!opts.length)break;
+  opts.sort((a,b)=>Math.abs(k+FOODMAP[a[0]].kcal-kcal)-Math.abs(k+FOODMAP[b[0]].kcal-kcal));
+  const i=opts[0];items.push(i);qs.push(i[1]);k+=FOODMAP[i[0]].kcal;p+=FOODMAP[i[0]].p;added++;
+ }
+ return{t:{...t,items},src:t,qs,kcal:k,p};
+}
+function fitBase(t,kcal){
+ const fx=t.items.findIndex(i=>i[3]);
+ const total=qs=>t.items.reduce((s,i,k)=>{const f=FOODMAP[i[0]];return{kcal:s.kcal+f.kcal*qs[k],p:s.p+f.p*qs[k]}},{kcal:0,p:0});
+ let qs=t.items.map(i=>i[1]), best=total(qs);
+ if(fx>=0){const [lo,hi,st]=t.items[fx][3];
+  for(let q=lo;q<=hi+1e-9;q+=st){const tq=qs.slice();tq[fx]=Math.round(q*100)/100;const tt=total(tq);
+   if(Math.abs(tt.kcal-kcal)<Math.abs(best.kcal-kcal)){best=tt;qs=tq}}}
+ return{t,qs,kcal:best.kcal,p:best.p};
+}
+function amt(n){const w=Math.floor(n+1e-9),fr=Math.round((n-w)*100);const s=fr===50?'½':fr===25?'¼':fr===75?'¾':'';return (w||!s?String(w):'')+s}
+function ideaText(x){
+ return x.t.items.map((i,k)=>{const q=x.qs[k],mult=i[4]||1,label=q===1?i[2].replace(/^boiled eggs/,'boiled egg').replace(/^slices/,'slice'):i[2];
+  return (mult>1?Math.round(q*mult):amt(q))+' '+label}).join(' + ');
+}
+function hash(n){n=(n^61)^(n>>>16);n+=n<<3;n^=n>>>4;n=Math.imul(n,0x27d4eb2d);n^=n>>>15;return n>>>0}
+function mealIdeas(r,diet){
+ const slots={Breakfast:'bf','Mid-morning':'sn',Lunch:'lu','Evening snack':'sn',Dinner:'di'};
+ const day=Math.floor(Date.now()/864e5)+ideaShift, used=new Set();
+ return MEALS.map(([name,share],mi)=>{
+  const kcal=r.target*share, prot=r.protein*share;
+  const fits=IDEAS.filter(t=>t.m===slots[name]&&ideaOk(t,diet)&&!used.has(t)).map(t=>fitIdea(t,kcal,diet))
+   .map(x=>({...x,score:Math.abs(x.kcal-kcal)/kcal+0.4*Math.max(0,(prot-x.p)/prot)}))
+   .sort((a,b)=>a.score-b.score);
+  let pool=fits.filter(x=>Math.abs(x.kcal-kcal)/kcal<=0.2).slice(0,6);
+  if(pool.length<3)pool=fits.slice(0,Math.max(3,pool.length));
+  pool.sort((a,b)=>hash(day*31+mi*7+IDEAS.indexOf(a.src))-hash(day*31+mi*7+IDEAS.indexOf(b.src)));
+  const pick=pool.slice(0,3); pick.forEach(x=>used.add(x.src));
+  return{name,kcal,prot,ideas:pick};
+ });
+}
+function ideasNote(diet){
+ return diet==='jain'?'Cook without onion, garlic, potato or other root vegetables. ':diet==='vegan'?'Cook in oil instead of ghee or butter, and use plant milk or curd if you take them. ':'';
+}
+
 function donut(r){
  const tot=r.protein*4+r.fat*9+r.carb*4, C=2*Math.PI*54;
  let off=0;
@@ -512,6 +585,17 @@ function summaryText(r){
  ].join('\n');
 }
 
+// Counts one completed plan per device per day (only diet and goal are sent), 6 s after the last edit.
+let countTimer;
+function countPlan(){
+ if(CFG.demo)return;
+ clearTimeout(countTimer);
+ countTimer=setTimeout(()=>{
+  const day=new Date().toDateString();
+  try{if(localStorage.getItem('poshan-counted')===day)return;localStorage.setItem('poshan-counted',day)}catch(e){}
+  fetch('/api/count',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({diet:state.diet,goal:state.goal}),keepalive:true}).catch(()=>{});
+ },6000);
+}
 function renderResults(){
  const r=compute(state), el=$('#results');
  $('#err').hidden=!r.errs; if(r.errs)$('#err').innerHTML=r.errs.map(esc).join('<br>');
@@ -521,6 +605,7 @@ function renderResults(){
   hx.textContent=Math.abs(d)<.01?'24 h logged ✓':d>0?`${hrs} h logged · ${d} h left`:`${hrs} h logged · ${-d} h over`;
  }
  if(r.errs){el.innerHTML=`<div class="card empty">Fix the highlighted details to see the plan.</div>`;return}
+ if(!isSample)countPlan();
  const [bc,bw]=bmiClass(r.bmi), max=Math.max(...r.F.map(f=>f.tdee));
  const pk=r.protein*4,fk=r.fat*9,ck=r.carb*4,tot=pk+fk+ck;
  const pct=k=>Math.round(k/tot*100);
@@ -580,6 +665,15 @@ function renderResults(){
   <div class="meals">${MEALS.map(([n,p])=>`<div class="meal"><div class="k">${n} · ${Math.round(p*100)}%</div><div class="v">${fmt(r.target*p)} kcal</div><div class="d">P ${Math.round(r.protein*p)} · C ${Math.round(r.carb*p)} · F ${Math.round(r.fat*p)} g</div></div>`).join('')}</div>
  </section>`:locked('meals','Meal distribution','Calories, protein, carbs and fat for each meal of the day.')}
 
+ ${isPro()?`<section class="card ideas">
+  <h2>Indian meal ideas</h2>
+  <p class="sub">Options for each meal that fit your calories and ${DIETS[state.diet].toLowerCase()} diet. Amounts are adjusted to your target.</p>
+  ${mealIdeas(r,state.diet).map(m=>`<div class="idmeal"><div class="idhead"><b>${m.name}</b><span class="num">~${fmt(m.kcal)} kcal · ${Math.round(m.prot)} g protein</span></div>
+   <ul class="idlist">${m.ideas.map(x=>`<li><span>${esc(ideaText(x))}</span><span class="idmeta num">≈ ${fmt(x.kcal)} kcal · ${Math.round(x.p)} g protein</span></li>`).join('')||'<li class="fine">No ideas for this meal yet.</li>'}</ul></div>`).join('')}
+  <div class="actions"><button type="button" class="btn" id="moreideas">Show different ideas</button></div>
+  <p class="fine">${ideasNote(state.diet)}Values are approximate; katori = about 150 ml. Pick any one option per meal.</p>
+ </section>`:locked('ideas','Indian meal ideas','What to eat at each meal, with Indian options that fit your calories and diet.')}
+
  ${isPro()?`<section class="card">
   <h2>Micronutrients</h2>
   <p class="sub">Daily requirement for an adult ${r.male?'man':'woman'} (ICMR-NIN 2020 RDA), with ${DIETS[state.diet].toLowerCase()} sources.</p>
@@ -624,6 +718,7 @@ function renderResults(){
  const c=$('#clear'); if(c)c.onclick=()=>{
   state={...SAMPLE,name:'',age:'',sex:'',height:'',weight:'',bf:'',log:[['sleep',8],['sit',8]]};isSample=false;fillForm();update();
  };
+ const mi=$('#moreideas'); if(mi) mi.onclick=()=>{ideaShift++;const y=window.scrollY;renderResults();window.scrollTo(0,y)};
  const cp=$('#copy'); if(cp) cp.onclick=()=>{
   const t=summaryText(r), ok=()=>{$('#copied').hidden=false;setTimeout(()=>$('#copied').hidden=true,2000)};
   const fb=()=>{const f=$('#fb');f.value=t;f.hidden=false;f.focus();f.select()};
@@ -672,6 +767,7 @@ const isPhone=()=>{try{return matchMedia('(pointer:coarse)').matches}catch(e){re
 const FEATURES={
  micro:{title:'Micronutrients',line:'Micronutrient targets (ICMR-NIN 2020) with Indian food sources for your diet'},
  meals:{title:'Meal distribution',line:'Meal-by-meal calorie, protein, carb and fat split'},
+ ideas:{title:'Meal ideas',line:'Indian meal ideas for every meal, fitted to your calories and diet'},
  share:{title:'Plan sharing',line:'Shareable plan summary for WhatsApp or email'}
 };
 let featureFocus='';
@@ -680,6 +776,9 @@ function lockPreview(key){
  if(key==='micro')return `<div class="scroll"><table class="ftable micro"><thead><tr><th>Nutrient</th><th class="num">Per day</th><th>Good sources</th></tr></thead><tbody>
   ${MICROS.slice(0,5).map(m=>`<tr><td>${m.n}</td><td class="num">${MASK} ${m.u}</td><td><span class="maskline"></span></td></tr>`).join('')}
   <tr><td colspan="3" class="fine">+ ${MICROS.length-5} more: ${MICROS.slice(5).map(m=>m.n).join(', ')}</td></tr></tbody></table></div>`;
+ if(key==='ideas'){const r=compute(state);if(r.errs)return '';const m=mealIdeas(r,state.diet);const first=m[0].ideas[0];
+  return `<div class="idmeal"><div class="idhead"><b>${m[0].name}</b><span class="num">~${fmt(m[0].kcal)} kcal</span></div><ul class="idlist">${first?`<li><span>${esc(ideaText(first))}</span><span class="idmeta num">≈ ${fmt(first.kcal)} kcal · ${Math.round(first.p)} g protein</span></li>`:''}<li><span class="maskline"></span></li></ul></div>
+  ${m.slice(1,3).map(x=>`<div class="idmeal"><div class="idhead"><b>${x.name}</b><span class="num">${MASK} kcal</span></div><ul class="idlist"><li><span class="maskline"></span></li><li><span class="maskline"></span></li></ul></div>`).join('')}`;}
  if(key==='meals')return `<div class="meals">${MEALS.map(([n,p])=>`<div class="meal"><div class="k">${n} · ${Math.round(p*100)}%</div><div class="v">${MASK} kcal</div><div class="d">P ${MASK} · C ${MASK} · F ${MASK}</div></div>`).join('')}</div>`;
  return `<div class="sharepv"><b>Poshan nutrition plan${state.name?' for '+esc(state.name):''}</b>
   <span>Daily target: ${MASK} kcal</span><span>Protein ${MASK} g · Carbohydrate ${MASK} g · Fat ${MASK} g</span>
